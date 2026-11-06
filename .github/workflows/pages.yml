@@ -1,4 +1,6 @@
-# public/ klasörünü GitHub Pages'te yayınlar: https://<kullanıcı>.github.io/<depo>/
+# public/ klasörünü gh-pages dalına kopyalar. GitHub Pages bu daldan yayın yapar:
+# Settings → Pages → Source: "Deploy from a branch" → gh-pages / (root)
+# Site adresi: https://<kullanıcı>.github.io/<depo>/
 name: GitHub Pages
 
 on:
@@ -8,25 +10,37 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-      - id: deployment
-        uses: actions/deploy-pages@v4
+
+      - name: public/ klasörünü gh-pages dalına kopyala
+        run: |
+          set -e
+          cp -r public "$RUNNER_TEMP/site"
+          touch "$RUNNER_TEMP/site/.nojekyll"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth 1 origin gh-pages; then
+            git checkout -B gh-pages FETCH_HEAD
+          else
+            git checkout --orphan gh-pages
+          fi
+          git rm -rq --cached . || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r "$RUNNER_TEMP/site/." .
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Değişiklik yok"
+            exit 0
+          fi
+          git commit -m "Yayın ekranı güncellendi (${GITHUB_SHA::7})"
+          git push origin gh-pages

@@ -28,9 +28,10 @@ Puanlar, kupalar ve taraftarlar tabletin kendi hafızasında saklanır.
 
 **Bir kerelik hazırlık:**
 
-1. **GitHub Pages'i aç:** GitHub'da bu depoyu aç → **Settings** → **Pages** → *Source* kısmında **GitHub Actions** seç.
-   Sonra **Actions** sekmesi → **GitHub Pages** → **Run workflow**. Bir dakika sonra site yayında:
+1. **GitHub Pages'i aç:** GitHub'da bu depoyu aç → **Settings** → **Pages** → *Source*: **Deploy from a branch** →
+   Branch: **gh-pages**, klasör: **/ (root)** → **Save**. Bir iki dakika sonra site yayında:
    `https://haydarsahin0.github.io/tiktok/`
+   (Kodda değişiklik olunca yayın ekranı `gh-pages` dalına otomatik kopyalanır.)
 2. **Euler Stream hesabı aç:** [eulerstream.com](https://www.eulerstream.com) → kaydol → **API Key** oluştur.
    Tarayıcı TikTok'a doğrudan bağlanamadığı için yorum ve hediyeler bu servis üzerinden gelir.
    Euler ücretli bir servis; deneme ya da küçük bir plan olup olmadığını sitesinden kontrol et.

@@ -4,7 +4,6 @@
   const H = 1920;
   const params = new URLSearchParams(location.search);
   const TRANSPARENT = params.get('transparent') === '1';
-  const SOUND = params.get('sound') === '1';
   const TOP_N = 8;
   const FONT = '"Baloo 2", "Segoe UI", Arial, sans-serif';
 
@@ -26,6 +25,7 @@
   let ball = { x: 540, y: 1150, t: 1, from: null, to: null };
   let goalText = null;
   let tickerX = 0;
+  let lastOrder = null;
   const imgCache = new Map();
 
   const serverNow = () => Date.now() + timeOffset;
@@ -58,6 +58,12 @@
       teamOrder = teams.map((t) => t.id);
     },
     setState(s) {
+      // İlk 8'de bir takım yükseldiyse yumuşak "yükselme" sesi
+      const order = s.teams.slice(0, TOP_N).filter((t) => t.points > 0).map((t) => t.id);
+      if (lastOrder && order.some((id, i) => { const before = lastOrder.indexOf(id); return before === -1 ? lastOrder.length >= i + 1 && lastOrder.length > 0 : before > i; })) {
+        sfx('rankUp');
+      }
+      lastOrder = order;
       state = s;
       timeOffset = s.now - Date.now();
       syncFans();
@@ -75,7 +81,7 @@
         bounceTeam(e.team);
         shootBall(e.team, e.points);
         if (e.points >= 1000) confetti(540, 1150, team(e.team).colors, Math.min(160, 30 + e.points / 100));
-        sound(big ? 'goal' : 'pop');
+        sfx('gift', e.points);
         break;
       }
       case 'needTeam':
@@ -87,7 +93,6 @@
         break;
       case 'join':
         toast(`${e.user.name} ${team(e.team).name} taraftarı oldu!`, e.team);
-        sound('tick');
         break;
       case 'transfer':
         toast(`🔁 ${e.user.name} transfer: ${team(e.from).short} → ${team(e.team).short}`, e.team);
@@ -105,10 +110,10 @@
       }
       case 'leader':
         flash = { team: e.team, start: performance.now(), dur: 2800 };
-        sound('goal');
+        sfx('leader');
         break;
       case 'champion':
-        sound('goal');
+        sfx('champion');
         break;
       case 'roundStart':
         columns.clear();
@@ -147,38 +152,8 @@
     if (particles.length > 900) particles.splice(0, particles.length - 900);
   }
 
-  // ---------- ses (isteğe bağlı: ?sound=1) ----------
-  let audio = null;
-  function sound(kind) {
-    if (!SOUND) return;
-    try {
-      audio = audio || new AudioContext();
-      const t = audio.currentTime;
-      if (kind === 'goal') {
-        // kalabalık uğultusu: filtrelenmiş gürültü
-        const len = audio.sampleRate * 1.6;
-        const buf = audio.createBuffer(1, len, audio.sampleRate);
-        const d = buf.getChannelData(0);
-        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.sin((i / len) * Math.PI);
-        const src = audio.createBufferSource();
-        src.buffer = buf;
-        const f = audio.createBiquadFilter();
-        f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 0.6;
-        const g = audio.createGain(); g.gain.value = 0.5;
-        src.connect(f).connect(g).connect(audio.destination);
-        src.start(t);
-      }
-      const o = audio.createOscillator();
-      const g = audio.createGain();
-      o.type = kind === 'tick' ? 'triangle' : 'square';
-      o.frequency.setValueAtTime(kind === 'tick' ? 880 : 1760, t);
-      if (kind === 'goal') o.frequency.setValueAtTime(2200, t + 0.12);
-      g.gain.setValueAtTime(kind === 'tick' ? 0.05 : 0.08, t);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'goal' ? 0.5 : 0.15));
-      o.connect(g).connect(audio.destination);
-      o.start(t); o.stop(t + 0.6);
-    } catch { /* ses yoksa geç */ }
-  }
+  // ---------- ses (audio.js) ----------
+  const sfx = (name, ...args) => { try { window.TaraftarAudio?.[name](...args); } catch { /* sessiz */ } };
 
   // ---------- taraftar halkası ----------
   const RING = { cx: 540, cy: 1150, rx: 468, ry: 222 };

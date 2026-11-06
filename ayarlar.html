@@ -76,6 +76,22 @@
     </div>
   </section>
 
+  <section>
+    <h2>3. Müzik ve sesler</h2>
+    <label class="choice"><input id="music" type="checkbox" /> Arka plan müziği</label>
+    <input id="musicVolume" type="range" min="0" max="100" step="5" aria-label="Müzik sesi" />
+    <label class="choice"><input id="sfx" type="checkbox" /> Hediye ve sıralama efektleri</label>
+    <input id="sfxVolume" type="range" min="0" max="100" step="5" aria-label="Efekt sesi" />
+    <div class="row" style="margin-top:10px">
+      <button type="button" id="pMusic">▶ Müziği dinle</button>
+      <button type="button" id="pGift">🎁 Hediye</button>
+      <button type="button" id="pBig">💎 Büyük hediye</button>
+      <button type="button" id="pRank">⬆ Sıralama</button>
+      <button type="button" id="pLeader">👑 Lider</button>
+    </div>
+    <p class="hint">Müzik bu oyuna özel üretilir, telif sorunu yoktur. Değişiklikler açık olan yayın ekranına anında uygulanır.</p>
+  </section>
+
   <button class="primary" id="save">💾 Kaydet ve yayın ekranını aç</button>
 
   <section>
@@ -116,6 +132,8 @@
     <p class="hint">Yayın ekranında bağlantı sorunu olursa adresin sonuna <code>?debug=1</code> ekle; TikTok'tan gelen veriler ekranda görünür.</p>
   </section>
 </main>
+<script>window.TARAFTAR_AUDIO_MANUAL = true;</script>
+<script src="audio.js"></script>
 <script type="module">
   import { loadConfig, saveConfig, channel } from './config.js';
   import { relayBase, sameOriginRelay } from './relay-client.js';
@@ -154,9 +172,44 @@
   for (const k of RULES) $(k).value = cfg.rules[k];
 
   const bc = channel();
+
+  // ---- ses ayarları ----
+  const A = window.TaraftarAudio;
+  const audioCfg = { music: true, musicVolume: 0.35, sfx: true, sfxVolume: 0.6, ...(cfg.audio || {}) };
+  $('music').checked = audioCfg.music;
+  $('sfx').checked = audioCfg.sfx;
+  $('musicVolume').value = Math.round(audioCfg.musicVolume * 100);
+  $('sfxVolume').value = Math.round(audioCfg.sfxVolume * 100);
+  const readAudio = () => ({
+    music: $('music').checked,
+    musicVolume: Number($('musicVolume').value) / 100,
+    sfx: $('sfx').checked,
+    sfxVolume: Number($('sfxVolume').value) / 100,
+  });
+  let previewing = false;
+  const applyAudio = () => {
+    const a = readAudio();
+    A.configure({ ...a, music: previewing && a.music });
+    bc.postMessage({ type: 'audio', audio: a });
+    saveConfig({ ...loadConfig(), audio: a });
+  };
+  for (const id of ['music', 'sfx', 'musicVolume', 'sfxVolume']) $(id).addEventListener('input', applyAudio);
+  $('pMusic').onclick = () => {
+    previewing = !previewing;
+    A.configure(readAudio());
+    A.preview(previewing);
+    $('pMusic').textContent = previewing ? '⏸ Müziği durdur' : '▶ Müziği dinle';
+  };
+  const fx = (fn) => () => { A.unlockSfx(); A.configure({ ...readAudio(), music: previewing }); setTimeout(fn, 60); };
+  $('pGift').onclick = fx(() => A.gift(300));
+  $('pBig').onclick = fx(() => A.gift(10000));
+  $('pRank').onclick = fx(() => A.rankUp());
+  $('pLeader').onclick = fx(() => A.leader());
+
   $('save').onclick = () => {
     const next = {
       ...cfg,
+      audio: readAudio(),
       username: $('username').value.trim().replace(/^@/, ''),
       apiKey: $('apiKey').value.trim(),
       source: src(),

@@ -3,10 +3,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { WebSocketServer } from 'ws';
-import { Game } from './game.js';
-import { TEAMS } from './teams.js';
+import fs from 'node:fs';
+import { Game } from '../public/core/game.js';
+import { TEAMS } from '../public/core/teams.js';
 import { TikTokBridge } from './tiktok.js';
-import { startDemo } from './demo.js';
+import { startDemo } from '../public/core/demo.js';
 import { startStreamer, streamTarget } from './streamer.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -28,8 +29,17 @@ const ruleEnv = {
   roundMinutes: num(env.ROUND_MINUTES, undefined),
   championSeconds: num(env.CHAMPION_SECONDS, undefined),
 };
+const stateFile = path.join(root, 'data', 'state.json');
+const fileStorage = {
+  read: () => (fs.existsSync(stateFile) ? fs.readFileSync(stateFile, 'utf8') : null),
+  write: (text) => {
+    fs.mkdirSync(path.dirname(stateFile), { recursive: true });
+    fs.writeFileSync(`${stateFile}.tmp`, text);
+    fs.renameSync(`${stateFile}.tmp`, stateFile);
+  },
+};
 const game = new Game({
-  file: path.join(root, 'data', 'state.json'),
+  storage: fileStorage,
   rules: Object.fromEntries(Object.entries(ruleEnv).filter(([, v]) => v !== undefined)),
 });
 
@@ -127,7 +137,7 @@ async function shutdown() {
   stopDemo?.();
   streamer?.stop();
   await bridge?.stop();
-  try { game.dirty = true; game.save(); } catch (err) { console.error(err); }
+  try { game.save(true); } catch (err) { console.error(err); }
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

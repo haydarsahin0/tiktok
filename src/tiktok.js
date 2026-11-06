@@ -1,34 +1,8 @@
 import { EventEmitter } from 'node:events';
 
-// tiktok-live-connector sürümleri arasında alan adları değişebiliyor
-// (eski: uniqueId/comment/giftDetails, yeni: displayId/content/gift). İkisini de okuruz.
+import { readUser, readGift, readComment, readLikeCount, isStreakInProgress } from '../public/core/tiktok-data.js';
 
-export function readUser(raw) {
-  const u = raw?.user || raw || {};
-  const id = u.uniqueId || u.displayId || u.userId || u.id;
-  if (!id) return null;
-  const avatar =
-    u.profilePictureUrl ||
-    u.avatarThumb?.urlList?.[0] ||
-    u.avatarMedium?.urlList?.[0] ||
-    u.profilePicture?.urls?.[0] ||
-    '';
-  return { id: String(id), name: u.nickname || String(id), avatar };
-}
-
-export function readGift(data) {
-  const g = data.gift || {};
-  const ext = data.extendedGiftInfo || {};
-  const details = data.giftDetails || {};
-  return {
-    coins: Number(g.diamondCount ?? data.diamondCount ?? details.diamondCount ?? ext.diamond_count ?? 0),
-    count: Math.max(1, Number(data.repeatCount || 1)),
-    name: g.name || details.giftName || ext.name || data.giftName || 'Hediye',
-    image: g.image?.urlList?.[0] || details.giftImage?.giftPictureUrl || ext.image?.url_list?.[0] || data.giftPictureUrl || '',
-    type: Number(g.type ?? details.giftType ?? data.giftType ?? 0),
-    repeatEnd: Boolean(data.repeatEnd),
-  };
-}
+export { readUser, readGift };
 
 /**
  * Yayına bağlanır, düşerse tekrar bağlanır. Şu olayları yayınlar:
@@ -66,21 +40,20 @@ export class TikTokBridge extends EventEmitter {
 
     on(E.CHAT || 'chat', (data) => {
       const user = readUser(data);
-      const text = data.comment ?? data.content ?? '';
+      const text = readComment(data);
       if (user && text) this.emit('chat', user, text);
     });
 
     on(E.GIFT || 'gift', (data) => {
       const user = readUser(data);
       const gift = readGift(data);
-      // Seri (combo) hediyelerde sadece seri bittiğinde say
-      if (gift.type === 1 && !gift.repeatEnd) return;
+      if (isStreakInProgress(gift)) return;
       if (user) this.emit('gift', user, gift);
     });
 
     on(E.LIKE || 'like', (data) => {
       const user = readUser(data);
-      const count = Number(data.likeCount ?? data.count ?? 1);
+      const count = readLikeCount(data);
       if (user && count > 0) this.emit('like', user, count);
     });
 

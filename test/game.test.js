@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Game } from '../src/game.js';
-import { findTeam, normalize } from '../src/teams.js';
+import { Game } from '../public/core/game.js';
+import { findTeam, normalize } from '../public/core/teams.js';
 import { readGift, readUser } from '../src/tiktok.js';
 
 const user = (id) => ({ id, name: id, avatar: '' });

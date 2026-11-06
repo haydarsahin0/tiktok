@@ -1,7 +1,17 @@
-import { EventEmitter } from 'node:events';
-import fs from 'node:fs';
-import path from 'node:path';
 import { TEAMS, TEAM_BY_ID, findTeam } from './teams.js';
+
+// Bu dosya hem tarayıcıda (GitHub Pages / tablet) hem Node sunucusunda çalışır.
+// Kayıt yeri dışarıdan verilir: storage = { read(): string|null, write(text) }
+
+class Emitter {
+  constructor() { this.handlers = {}; }
+  on(name, fn) { (this.handlers[name] ||= []).push(fn); return this; }
+  emit(name, ...args) {
+    for (const fn of this.handlers[name] || []) {
+      try { fn(...args); } catch (err) { console.error(err); }
+    }
+  }
+}
 
 export const DEFAULT_RULES = {
   pointsPerCoin: 100, // 1 TikTok coin (elmas) = 100 puan
@@ -16,11 +26,11 @@ export const DEFAULT_RULES = {
 
 const now = () => Date.now();
 
-export class Game extends EventEmitter {
-  constructor({ rules = {}, file = null, clock = now } = {}) {
+export class Game extends Emitter {
+  constructor({ rules = {}, storage = null, clock = now } = {}) {
     super();
     this.rules = { ...DEFAULT_RULES, ...rules };
-    this.file = file;
+    this.storage = storage;
     this.clock = clock;
     this.dirty = true;
 
@@ -273,9 +283,11 @@ export class Game extends EventEmitter {
   }
 
   load() {
-    if (!this.file || !fs.existsSync(this.file)) return;
+    if (!this.storage) return;
     try {
-      const data = JSON.parse(fs.readFileSync(this.file, 'utf8'));
+      const text = this.storage.read();
+      if (!text) return;
+      const data = JSON.parse(text);
       this.users = data.users || {};
       this.trophies = data.trophies || {};
       this.history = data.history || [];
@@ -300,13 +312,10 @@ export class Game extends EventEmitter {
     }
   }
 
-  save() {
-    if (!this.file || !this.dirty) return;
+  save(force = false) {
+    if (!this.storage || (!this.dirty && !force)) return;
     this.pruneUsers();
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    const tmp = `${this.file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.toJSON()));
-    fs.renameSync(tmp, this.file);
+    this.storage.write(JSON.stringify(this.toJSON()));
     this.dirty = false;
   }
 

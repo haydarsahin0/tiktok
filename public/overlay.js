@@ -49,25 +49,21 @@
     return img.complete && !img.failed && img.naturalWidth ? img : null;
   }
 
-  // ---------- bağlantı ----------
-  function connect() {
-    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
-    ws.onmessage = (m) => {
-      const msg = JSON.parse(m.data);
-      if (msg.type === 'teams') {
-        TEAMS = Object.fromEntries(msg.teams.map((t) => [t.id, t]));
-        teamOrder = msg.teams.map((t) => t.id);
-      } else if (msg.type === 'state') {
-        state = msg.state;
-        timeOffset = state.now - Date.now();
-        syncFans();
-      } else if (msg.type === 'event') {
-        onEvent(msg.event);
-      }
-    };
-    ws.onclose = () => setTimeout(connect, 2000);
-  }
-  connect();
+  // ---------- veri girişi ----------
+  // Veri iki yerden gelebilir: Node sunucusu (WebSocket) ya da tarayıcının içinde
+  // çalışan oyun (GitHub Pages / tablet). İkisi de bu fonksiyonları çağırır (bkz. main.js).
+  window.Overlay = {
+    setTeams(teams) {
+      TEAMS = Object.fromEntries(teams.map((t) => [t.id, t]));
+      teamOrder = teams.map((t) => t.id);
+    },
+    setState(s) {
+      state = s;
+      timeOffset = s.now - Date.now();
+      syncFans();
+    },
+    event(e) { onEvent(e); },
+  };
 
   // ---------- olaylar ----------
   function onEvent(e) {
@@ -734,6 +730,12 @@
 
   function drawStatus() {
     const live = state?.live;
+    if (live?.debug && params.get('debug') === '1') {
+      // Hata ayıklama: TikTok'tan gelen son olay türleri
+      rr(20, 1180, W - 40, 26 * live.debug.length + 20, 12);
+      ctx.fillStyle = 'rgba(0,0,0,.85)'; ctx.fill();
+      live.debug.forEach((line, i) => text(line, 36, 1202 + i * 26, { size: 18, weight: 600, align: 'left', color: '#9f9', max: W - 72 }));
+    }
     if (!live || live.state === 'connected') return;
     const label = {
       demo: 'DEMO MODU',
@@ -742,9 +744,13 @@
       offline: 'Yayın bekleniyor',
       error: 'Bağlantı hatası',
       idle: 'Hazırlanıyor',
+      auth: 'API anahtarı hatalı — ayarlara bak',
+      setup: 'DEMO • Ayarlar için ekrana dokun',
     }[live.state] || live.state;
-    rr(W / 2 - 150, 156, 300, 30, 15);
-    ctx.fillStyle = live.state === 'demo' ? 'rgba(80,80,255,.8)' : 'rgba(200,60,0,.85)'; ctx.fill();
+    ctx.font = `700 20px ${FONT}`;
+    const lw = Math.max(300, ctx.measureText(label).width + 40);
+    rr(W / 2 - lw / 2, 156, lw, 30, 15);
+    ctx.fillStyle = live.state === 'demo' || live.state === 'setup' ? 'rgba(80,80,255,.8)' : 'rgba(200,60,0,.85)'; ctx.fill();
     text(label, W / 2, 172, { size: 20, weight: 700 });
   }
 

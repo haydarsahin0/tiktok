@@ -20,11 +20,13 @@
     #tap { position: fixed; inset: 0; display: none; flex-direction: column; gap: 6px; align-items: center; justify-content: center; background: rgba(0,0,0,.55); color: #fff;
       font: 800 22px/1.4 "Baloo 2", system-ui, sans-serif; text-align: center; padding: 24px; z-index: 2; }
     #tap.show { display: flex; }
+    #settings { margin-top: 18px; padding: 10px 22px; border-radius: 999px; background: #ffd400; color: #111; text-decoration: none; font-size: 20px; }
   </style>
 </head>
 <body>
   <div id="stage"><canvas id="c" width="1080" height="1920"></canvas></div>
-  <div id="tap"><div>📱 Tam ekran için dokun</div><small style="font-weight:600">Ekran yayın boyunca kapanmayacak</small></div>
+  <div id="tap"><div>📱 Tam ekran için dokun</div><small style="font-weight:600">Ekran yayın boyunca kapanmayacak</small>
+    <a id="settings" href="ayarlar.html">⚙️ Ayarlar</a></div>
   <script>
     // Telefon modu: dokununca tam ekran + ekranın kapanmasını engelle (Wake Lock)
     (() => {
@@ -40,11 +42,13 @@
         keepAwake();
       }
       if (isTouch && !matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) tap.classList.add('show');
+      document.getElementById('settings').addEventListener('click', (e) => e.stopPropagation());
       document.addEventListener('click', go);
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
       keepAwake();
     })();
   </script>
   <script src="overlay.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>

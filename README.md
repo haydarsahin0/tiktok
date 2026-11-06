@@ -21,9 +21,33 @@ Galatasaray, Fenerbahçe, Beşiktaş, Trabzonspor'un yanında Sivas'tan Amed'e, 
 - Tur süresi dolunca (varsayılan 60 dk) şampiyon ekranı gelir, takımın kupa sayısı artar, puanlar sıfırlanır, yeni tur başlar.
 - Kupalar, taraftarların takımı ve devam eden tur `data/state.json` dosyasına kaydedilir. Program kapanıp açılsa da kaldığı yerden devam eder.
 
-## Bilgisayarım yok — ne yapacağım?
+## En kolay yol: Tablet / telefon + GitHub Pages (kurulum yok)
 
-İki yol var. **Önce Yol 1 ile ücretsiz başla**, yayın tutup hediye gelmeye başlayınca Yol 2'ye geç.
+Oyun tamamen tarayıcının içinde çalışır. Sunucu, bilgisayar ya da uygulama kurmak gerekmez.
+Puanlar, kupalar ve taraftarlar tabletin kendi hafızasında saklanır.
+
+**Bir kerelik hazırlık:**
+
+1. **GitHub Pages'i aç:** GitHub'da bu depoyu aç → **Settings** → **Pages** → *Source* kısmında **GitHub Actions** seç.
+   Sonra **Actions** sekmesi → **GitHub Pages** → **Run workflow**. Bir dakika sonra site yayında:
+   `https://haydarsahin0.github.io/tiktok/`
+2. **Euler Stream hesabı aç:** [eulerstream.com](https://www.eulerstream.com) → kaydol → **API Key** oluştur.
+   Tarayıcı TikTok'a doğrudan bağlanamadığı için yorum ve hediyeler bu servis üzerinden gelir.
+   Euler ücretli bir servis; deneme ya da küçük bir plan olup olmadığını sitesinden kontrol et.
+
+**Her yayında:**
+
+1. Tablette `https://haydarsahin0.github.io/tiktok/ayarlar.html` aç, TikTok kullanıcı adını ve API anahtarını yaz → **Kaydet**.
+2. Açılan yayın ekranında Paylaş menüsü → **Ana Ekrana Ekle** (sonraki seferlerde direkt bu simgeden açarsın, tam ekran olur).
+3. TikTok → **Canlı** → **Mobil oyun / Ekran paylaşımı** → yayını başlat → Taraftar Ligi'ne geç.
+4. **Rahatsız Etmeyin** modunu aç, tableti şarja tak. Ekran yayın boyunca kapanmaz.
+
+Ayarlar sayfasında test butonları da var (hediye at, turu bitir…). Yayın ekranı başka sekmede açıkken çalışırlar.
+Bağlantı sorunu olursa yayın ekranının adresine `?debug=1` ekle; TikTok'tan gelen veriler ekranda görünür.
+
+## Diğer yollar (Euler Stream olmadan)
+
+Euler Stream kullanmak istemezsen: Yol 1 (Android telefonda Termux, ücretsiz) ya da Yol 2 (kiralık sunucu, cihaz gerekmez).
 
 | | Yol 1: Sadece telefon | Yol 2: Kiralık bulut sunucu |
 |---|---|---|
@@ -143,7 +167,7 @@ pm2 save
 
 ### Takım eklemek / renk değiştirmek
 
-`src/teams.js` dosyasını aç. Her satır bir takım:
+`public/core/teams.js` dosyasını aç (GitHub sitesinde dosyayı açıp kalem simgesiyle tabletten de düzenleyebilirsin). Her satır bir takım:
 
 ```js
 { id: 'sivas', name: 'Sivasspor', short: 'SİVAS', code: 'SVS', colors: ['#D7182A', '#FFFFFF'], aliases: ['sivasspor', 'sivas', 'yigido'], plate: '58' },
@@ -165,11 +189,12 @@ Ekranda kulüp logoları kullanılmıyor (telif/marka sorunu olmasın diye); tak
 ## Dosyalar
 
 ```
+public/core/     oyun mantığı ve takım listesi (tarayıcı ve sunucu ortak kullanır)
+public/local.js sunucusuz mod (GitHub Pages / tablet)
+public/euler.js tarayıcıdan TikTok bağlantısı (Euler Stream)
+public/ayarlar.html  tablet ayarlar sayfası
 src/server.js   web sunucusu, ekrana canlı veri gönderir
 src/tiktok.js   TikTok canlı yayın bağlantısı (otomatik yeniden bağlanma)
-src/game.js     puanlar, turlar, şampiyonluklar, kayıt
-src/teams.js    takım listesi
-src/demo.js     sahte izleyiciler
 src/streamer.js bilgisayarsız bulut yayını (sanal ekran + ffmpeg → TikTok)
 deploy/         telefon (Termux) ve sunucu kurulum betikleri
 Dockerfile      sunucu imajı

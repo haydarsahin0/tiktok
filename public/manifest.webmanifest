@@ -1,7 +1,7 @@
 {
   "name": "Taraftar Ligi",
   "short_name": "Taraftar",
-  "start_url": "/",
+  "start_url": "./",
   "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#05080f",

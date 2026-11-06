@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Taraftar Ligi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #05080f; overflow: hidden; }
+    body.transparent { background: transparent; }
+    #stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+    canvas { height: 100vh; width: calc(100vh * 9 / 16); max-width: 100vw; max-height: calc(100vw * 16 / 9); display: block; }
+  </style>
+</head>
+<body>
+  <div id="stage"><canvas id="c" width="1080" height="1920"></canvas></div>
+  <script src="overlay.js"></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Taraftar Ligi Yönetim</title>
+  <style>
+    :root { --bg: #0d1117; --card: #161b22; --line: #30363d; --text: #e6edf3; --muted: #8b949e; --accent: #ffd400; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    main { max-width: 980px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+    h1 { font-size: 22px; margin: 4px 0; }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+    h2 { font-size: 15px; margin: 0 0 10px; color: var(--accent); }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    input, select, button { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: #0d1117; color: var(--text); }
+    button { cursor: pointer; background: #21262d; }
+    button.primary { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 700; }
+    button.danger { background: #5a1d1d; border-color: #8e2c2c; }
+    .muted { color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 6px; border: 1px solid #fff4; }
+    #status { font-weight: 700; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>⚽ Taraftar Ligi — Yönetim</h1>
+  <section>
+    <h2>Durum</h2>
+    <div class="row"><span id="status">…</span><span class="muted" id="round"></span></div>
+    <p class="muted">Yayın ekranı: <a href="/" target="_blank">/</a> — TikTok LIVE Studio / OBS'te "Tarayıcı Kaynağı" olarak 1080x1920 ekle.</p>
+  </section>
+
+  <section>
+    <h2>Test olayı gönder</h2>
+    <div class="row">
+      <input id="uname" placeholder="Kullanıcı adı" value="TestTaraftar" />
+      <select id="team"></select>
+      <button onclick="sim('chat', { text: teamAlias() })">💬 Takımını yaz</button>
+      <input id="msg" placeholder="Yorum" style="flex:1;min-width:140px" />
+      <button onclick="sim('chat', { text: val('msg') })">Yorum gönder</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button onclick="sim('gift', { coins: 1, count: 5, giftName: 'Gül' })">🌹 Gül x5</button>
+      <button onclick="sim('gift', { coins: 30, count: 1, giftName: 'Donut' })">🍩 Donut (30)</button>
+      <button onclick="sim('gift', { coins: 99, count: 1, giftName: 'Şapka' })">🎩 99 jeton</button>
+      <button onclick="sim('gift', { coins: 1000, count: 1, giftName: 'Galaksi' })">🌌 Galaksi (1000)</button>
+      <button onclick="sim('gift', { coins: 29999, count: 1, giftName: 'Aslan' })">🦁 Aslan (29999)</button>
+      <button onclick="sim('like', { count: 50 })">❤️ 50 beğeni</button>
+      <button onclick="sim('follow')">➕ Takip</button>
+      <button onclick="sim('share')">📣 Paylaş</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Tur</h2>
+    <div class="row">
+      <button class="primary" onclick="post('/api/admin/finish-round')">🏆 Turu şimdi bitir (şampiyon ilan et)</button>
+      <button class="danger" onclick="if(confirm('Puanlar sıfırlansın mı? Şampiyon ilan edilmez.')) post('/api/admin/new-round')">Turu sıfırla</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Puan durumu</h2>
+    <table><thead><tr><th>#</th><th>Takım</th><th class="num">Taraftar</th><th class="num">Puan</th><th class="num">Kupa</th></tr></thead><tbody id="table"></tbody></table>
+  </section>
+</main>
+<script>
+  const token = new URLSearchParams(location.search).get('token') || '';
+  let TEAMS = [];
+  const val = (id) => document.getElementById(id).value;
+  const teamAlias = () => { const t = TEAMS.find((x) => x.id === val('team')); return t ? t.aliases[0] : ''; };
+  async function post(url, body = {}) {
+    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': token }, body: JSON.stringify(body) });
+    if (!r.ok) alert((await r.json()).error || r.statusText);
+  }
+  const sim = (kind, extra = {}) => post('/api/admin/sim', { kind, user: { id: val('uname'), name: val('uname') }, ...extra });
+
+  fetch('/api/teams').then((r) => r.json()).then((teams) => {
+    TEAMS = teams;
+    document.getElementById('team').innerHTML = teams.map((t) => `<option value="${t.id}">${t.name}</option>`).join('');
+  });
+
+  async function refresh() {
+    try {
+      const s = await (await fetch('/api/state')).json();
+      const byId = Object.fromEntries(TEAMS.map((t) => [t.id, t]));
+      const live = s.live || {};
+      document.getElementById('status').textContent = `${live.state === 'demo' ? 'DEMO' : '@' + live.username} — ${live.state}${live.viewers ? ` — ${live.viewers} izleyici` : ''}${live.message ? ` (${live.message})` : ''}`;
+      const left = s.round.endsAt ? Math.max(0, Math.round((s.round.endsAt - s.now) / 1000)) : null;
+      document.getElementById('round').textContent = `Tur ${s.round.number}${left !== null ? ` • ${Math.floor(left / 60)} dk ${left % 60} sn kaldı` : ' • süresiz'} • toplam ${s.totals.coins} jeton`;
+      document.getElementById('table').innerHTML = s.teams.filter((t) => t.points || t.fans || t.trophies).slice(0, 30).map((t, i) => {
+        const tm = byId[t.id] || { name: t.id, colors: ['#888', '#888'] };
+        return `<tr><td>${i + 1}</td><td><span class="dot" style="background:linear-gradient(90deg,${tm.colors[0]} 50%,${tm.colors[1]} 50%)"></span>${tm.name}</td><td class="num">${t.fans}</td><td class="num">${t.points.toLocaleString('tr-TR')}</td><td class="num">${t.trophies}</td></tr>`;
+      }).join('') || '<tr><td colspan="5" class="muted">Henüz puan yok</td></tr>';
+    } catch { /* sunucu yeniden başlıyor olabilir */ }
+  }
+  setInterval(refresh, 1000);
+  refresh();
+</script>
+</body>
+</html>

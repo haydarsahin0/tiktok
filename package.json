@@ -1,0 +1,30 @@
+{
+  "name": "taraftar-ligi",
+  "version": "1.0.0",
+  "description": "TikTok canlı yayın için etkileşimli futbol taraftar yarışı (Türkiye kulüpleri)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "demo": "node src/server.js --demo",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haydarsahin0/tiktok.git"
+  },
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/haydarsahin0/tiktok/issues"
+  },
+  "homepage": "https://github.com/haydarsahin0/tiktok#readme",
+  "dependencies": {
+    "express": "^5.3.0",
+    "tiktok-live-connector": "^2.5.0",
+    "ws": "^8.22.1"
+  },
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20.12"
+  }
+}

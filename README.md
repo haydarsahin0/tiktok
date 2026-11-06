@@ -21,7 +21,56 @@ Galatasaray, Fenerbahçe, Beşiktaş, Trabzonspor'un yanında Sivas'tan Amed'e, 
 - Tur süresi dolunca (varsayılan 60 dk) şampiyon ekranı gelir, takımın kupa sayısı artar, puanlar sıfırlanır, yeni tur başlar.
 - Kupalar, taraftarların takımı ve devam eden tur `data/state.json` dosyasına kaydedilir. Program kapanıp açılsa da kaldığı yerden devam eder.
 
-## Kurulum
+## Bilgisayarım yok — ne yapacağım?
+
+İki yol var. **Önce Yol 1 ile ücretsiz başla**, yayın tutup hediye gelmeye başlayınca Yol 2'ye geç.
+
+| | Yol 1: Sadece telefon | Yol 2: Kiralık bulut sunucu |
+|---|---|---|
+| Maliyet | Ücretsiz | Aylık yaklaşık 5–15 € / $ |
+| Gereken | Android telefon (yayına ayrılmış eski bir telefon ideal), şarj aleti, Wi-Fi | TikTok **yayın anahtarı** (stream key) + kiralık sunucu |
+| 7/24 | Telefon sürekli açık ve şarjda kalmalı | Hiçbir cihaz açık kalmaz, sunucu yayını kendisi yapar |
+| Nasıl yayına çıkar | TikTok uygulamasında **ekran paylaşımı** (mobil oyun yayını) | Sunucu görüntüyü doğrudan TikTok'a gönderir |
+
+### Yol 1: Sadece telefonla (Android)
+
+Oyun telefonun içinde çalışır, sen TikTok'tan ekranını paylaşarak yayına çıkarsın.
+
+1. **Termux** uygulamasını **F-Droid**'den indir (Play Store'daki sürümü eski, onu kullanma).
+2. Termux'u aç, şu komutu yapıştır:
+
+```bash
+pkg install -y git && git clone https://github.com/haydarsahin0/tiktok && cd tiktok && bash deploy/termux-kurulum.sh
+```
+
+3. Kurulum TikTok kullanıcı adını sorar, sonra oyunu başlatır. Termux'u kapatma, arka planda açık kalsın.
+4. Chrome'da `http://localhost:3000` aç → sağ üstteki menü → **Ana ekrana ekle**. Artık telefonunda "Taraftar Ligi" uygulaması var, ona dokununca tam ekran açılır.
+5. TikTok → **Canlı** → **Mobil oyun / Ekran paylaşımı** seçeneğini seç, yayına başla, sonra Taraftar Ligi uygulamasına geç.
+
+Yayın sırasında dikkat:
+- **Rahatsız Etmeyin** modunu aç, yoksa gelen bildirimler yayında görünür.
+- Ayarlar → Pil → Termux ve Chrome için **pil optimizasyonunu kapat** (Android arka planda kapatmasın).
+- Telefon şarja takılı, serin bir yerde dursun. Kılıfı çıkarmak ısınmayı azaltır.
+- Bir dahaki sefere başlatmak için Termux'ta: `cd tiktok && npm start`
+
+**iPhone kullanıyorsan:** iPhone'da Termux yok. Oyunu Yol 2'deki gibi bir sunucuda çalıştır (yayın anahtarı boş kalabilir), iPhone'da Safari ile sunucunun adresini aç → Paylaş → **Ana Ekrana Ekle**, sonra TikTok'tan ekran paylaşımıyla yayına çık.
+
+### Yol 2: Tamamen bulutta (cihaz gerekmez)
+
+Kiralık bir sunucu oyunu kendi içindeki görünmez bir ekranda çalıştırır ve görüntüyü 7/24 doğrudan TikTok'a gönderir. Telefonun kapalı olabilir.
+
+1. **Yayın anahtarın var mı kontrol et:** Bilgisayar sitesindeki TikTok LIVE bölümünde (LIVE Producer / LIVE Center) "Sunucu URL'si" ve "Yayın anahtarı" görünüyorsa bu yol sana uygun. TikTok bunu her hesaba vermiyor. Görünmüyorsa şimdilik Yol 1 ile devam et.
+2. **Sunucu kirala:** Hetzner, Contabo, DigitalOcean gibi bir firmadan **Ubuntu**, en az **2–4 çekirdek, 4 GB RAM** sunucu al. Telefondan kaydolabilirsin.
+3. Sunucu firmasının sitesindeki **Konsol** düğmesine bas (ya da telefona **Termius** uygulamasını kurup bağlan) ve şunu yapıştır:
+
+```bash
+git clone https://github.com/haydarsahin0/tiktok && cd tiktok && bash deploy/sunucu-kurulum.sh
+```
+
+4. Betik TikTok kullanıcı adını, sunucu URL'sini ve yayın anahtarını sorar. Bitince yayın ekranının ve yönetim panelinin adresini yazar (yönetim adresini kimseyle paylaşma).
+5. Sunucu yeniden başlasa da oyun ve yayın kendiliğinden açılır. Görüntü kayarsa `.env` dosyasında `STREAM_WIDTH=540`, `STREAM_HEIGHT=960`, `STREAM_BITRATE=2000k` yapıp betiği tekrar çalıştır.
+
+## Kurulum (bilgisayarın varsa)
 
 1. [Node.js](https://nodejs.org) 20.12 veya üstünü kur (LTS sürümü yeterli).
 2. Bu klasörde:
@@ -121,6 +170,9 @@ src/tiktok.js   TikTok canlı yayın bağlantısı (otomatik yeniden bağlanma)
 src/game.js     puanlar, turlar, şampiyonluklar, kayıt
 src/teams.js    takım listesi
 src/demo.js     sahte izleyiciler
+src/streamer.js bilgisayarsız bulut yayını (sanal ekran + ffmpeg → TikTok)
+deploy/         telefon (Termux) ve sunucu kurulum betikleri
+Dockerfile      sunucu imajı
 public/         yayın ekranı (index.html, overlay.js) ve yönetim paneli
 test/           testler (npm test)
 ```

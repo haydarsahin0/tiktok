@@ -7,6 +7,7 @@ import { Game } from './game.js';
 import { TEAMS } from './teams.js';
 import { TikTokBridge } from './tiktok.js';
 import { startDemo } from './demo.js';
+import { startStreamer, streamTarget } from './streamer.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 try { process.loadEnvFile(path.join(root, '.env')); } catch { /* .env yoksa sorun değil */ }
@@ -107,11 +108,24 @@ server.listen(PORT, () => {
   console.log(`   Yayın ekranı : http://localhost:${PORT}/`);
   console.log(`   Yönetim      : http://localhost:${PORT}/admin.html${ADMIN_TOKEN ? '?token=...' : ''}`);
   console.log(`   Mod          : ${DEMO ? 'DEMO' : `@${USERNAME}`} | Tur: ${game.rules.roundMinutes || '∞'} dk\n`);
+  const target = streamTarget(env);
+  if (target) {
+    streamer = startStreamer({
+      port: PORT,
+      target,
+      width: num(env.STREAM_WIDTH, 720),
+      height: num(env.STREAM_HEIGHT, 1280),
+      fps: num(env.STREAM_FPS, 30),
+      bitrate: env.STREAM_BITRATE || '3000k',
+    });
+  }
 });
+let streamer = null;
 
 async function shutdown() {
   console.log('\nKapatılıyor, kaydediliyor...');
   stopDemo?.();
+  streamer?.stop();
   await bridge?.stop();
   try { game.dirty = true; game.save(); } catch (err) { console.error(err); }
   process.exit(0);

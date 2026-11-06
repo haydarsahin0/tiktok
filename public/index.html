@@ -1,8 +1,14 @@
 <!doctype html>
-<html lang="tr">
+<html lang="tr" translate="no">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05080f" />
+  <meta name="google" content="notranslate" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <title>Taraftar Ligi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet" />
@@ -10,11 +16,35 @@
     html, body { margin: 0; height: 100%; background: #05080f; overflow: hidden; }
     body.transparent { background: transparent; }
     #stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-    canvas { height: 100vh; width: calc(100vh * 9 / 16); max-width: 100vw; max-height: calc(100vw * 16 / 9); display: block; }
+    canvas { height: 100vh; height: 100dvh; width: calc(100dvh * 9 / 16); max-width: 100vw; max-height: calc(100vw * 16 / 9); display: block; }
+    #tap { position: fixed; inset: 0; display: none; flex-direction: column; gap: 6px; align-items: center; justify-content: center; background: rgba(0,0,0,.55); color: #fff;
+      font: 800 22px/1.4 "Baloo 2", system-ui, sans-serif; text-align: center; padding: 24px; z-index: 2; }
+    #tap.show { display: flex; }
   </style>
 </head>
 <body>
   <div id="stage"><canvas id="c" width="1080" height="1920"></canvas></div>
+  <div id="tap"><div>📱 Tam ekran için dokun</div><small style="font-weight:600">Ekran yayın boyunca kapanmayacak</small></div>
+  <script>
+    // Telefon modu: dokununca tam ekran + ekranın kapanmasını engelle (Wake Lock)
+    (() => {
+      const isTouch = matchMedia('(pointer: coarse)').matches;
+      const tap = document.getElementById('tap');
+      let lock = null;
+      async function keepAwake() {
+        try { if ('wakeLock' in navigator && !lock) { lock = await navigator.wakeLock.request('screen'); lock.onrelease = () => { lock = null; }; } } catch { /* desteklenmiyor */ }
+      }
+      async function go() {
+        tap.classList.remove('show');
+        try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch { /* iPhone desteklemez */ }
+        keepAwake();
+      }
+      if (isTouch && !matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) tap.classList.add('show');
+      document.addEventListener('click', go);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+      keepAwake();
+    })();
+  </script>
   <script src="overlay.js"></script>
 </body>
 </html>

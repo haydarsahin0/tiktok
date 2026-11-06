@@ -1,0 +1,25 @@
+# Her güncellemede Render'daki sunucuyu yeniden kurdurur.
+# Gerekli: GitHub → Settings → Secrets and variables → Actions → New repository secret
+#   Adı: RENDER_DEPLOY_HOOK   Değeri: Render → servis → Settings → Deploy Hook adresi
+name: Render'a yayınla
+
+on:
+  push:
+    branches: [main, master, claude/futbol-tiktok-live-stream-stbos6]
+    paths-ignore: ['docs/**', 'logo/**', '**.md']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Render deploy hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK tanımlı değil, atlanıyor. (README: Render otomatik güncelleme)"
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Render'a yeniden kurulum isteği gönderildi."

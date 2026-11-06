@@ -47,6 +47,11 @@ Notlar:
 - Ayarlar sayfasında test butonları da var (hediye at, turu bitir…). Yayın ekranı başka sekmede açıkken çalışırlar.
 - Bağlantı sorunu olursa yayın ekranının adresine `?debug=1` ekle; gelen veriler ekranda görünür.
 
+**Render otomatik güncellenmiyorsa:** Render'ın GitHub uygulamasının bu depoya erişimi yoksa güncellemeler gelmez. İki çözüm:
+- Render → **Account Settings** → **GitHub** → **Configure** → `haydarsahin0/tiktok` deposuna erişim ver. Sonra servis → **Settings** → *Auto-Deploy*: **On Commit**.
+- Ya da: Render → servis → **Settings** → **Deploy Hook** adresini kopyala → GitHub → depo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret** → adı `RENDER_DEPLOY_HOOK`, değeri kopyaladığın adres. Bundan sonra her güncellemede GitHub, Render'a haber verir.
+- Acil durumda: Render → servis → **Manual Deploy** → **Deploy latest commit**.
+
 **İstersen Euler Stream ile:** Ayarlar sayfasında "Euler Stream" seçip ücretli API anahtarını yazabilirsin. Bu durumda Render gerekmez, oyun GitHub Pages'ten de açılabilir: `https://haydarsahin0.github.io/tiktok/`
 (GitHub → Settings → Pages → *Deploy from a branch* → `gh-pages` / root.)
 

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="tr" translate="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="google" content="notranslate" />
+  <title>Taraftar Ligi Ayarlar</title>
+  <style>
+    :root { --bg: #0d1117; --card: #161b22; --line: #30363d; --text: #e6edf3; --muted: #8b949e; --accent: #ffd400; --ok: #3fb950; --bad: #f85149; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    main { max-width: 760px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+    h1 { font-size: 24px; margin: 6px 0 0; }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+    h2 { font-size: 16px; margin: 0 0 12px; color: var(--accent); }
+    label { display: block; margin: 10px 0 4px; font-weight: 600; }
+    .hint { color: var(--muted); font-size: 14px; margin: 2px 0 0; }
+    input, button { font: inherit; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: #0d1117; color: var(--text); width: 100%; }
+    input[type=checkbox] { width: auto; transform: scale(1.4); margin-right: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .grid label { margin-top: 0; }
+    button { cursor: pointer; background: #21262d; font-weight: 600; }
+    button.primary { background: var(--accent); color: #111; border-color: var(--accent); font-size: 18px; }
+    button.danger { background: #3d1515; border-color: #8e2c2c; }
+    .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+    #status { font-weight: 700; }
+    .ok { color: var(--ok); } .bad { color: var(--bad); }
+    pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; color: #9f9; background: #000; padding: 10px; border-radius: 8px; max-height: 220px; overflow: auto; margin: 8px 0 0; }
+    a { color: var(--accent); }
+    ol { padding-left: 20px; margin: 6px 0; }
+    li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>⚽ Taraftar Ligi — Ayarlar</h1>
+
+  <section>
+    <h2>1. TikTok bağlantısı</h2>
+    <label for="username">TikTok kullanıcı adın</label>
+    <input id="username" placeholder="ör. taraftarligi (@ olmadan)" autocomplete="off" autocapitalize="off" />
+    <label for="apiKey">Euler Stream API anahtarı</label>
+    <input id="apiKey" type="password" placeholder="eulerstream.com → hesabın → API Keys" autocomplete="off" />
+    <p class="hint">Tarayıcı TikTok'a doğrudan bağlanamaz; yorum ve hediyeler Euler Stream üzerinden gelir. Anahtar sadece bu tabletin hafızasında saklanır, kimseyle paylaşılmaz.</p>
+    <label><input id="demo" type="checkbox" />Demo modu (sahte izleyicilerle dene)</label>
+  </section>
+
+  <section>
+    <h2>2. Oyun kuralları</h2>
+    <div class="grid">
+      <div><label for="roundMinutes">Tur süresi (dk, 0 = bitmez)</label><input id="roundMinutes" type="number" min="0" /></div>
+      <div><label for="pointsPerCoin">1 jeton = puan</label><input id="pointsPerCoin" type="number" min="0" /></div>
+      <div><label for="pointsPerLike">Beğeni puanı</label><input id="pointsPerLike" type="number" min="0" /></div>
+      <div><label for="pointsPerFollow">Takip puanı</label><input id="pointsPerFollow" type="number" min="0" /></div>
+      <div><label for="pointsPerShare">Paylaşım puanı</label><input id="pointsPerShare" type="number" min="0" /></div>
+      <div><label for="pointsPerJoin">Katılma puanı</label><input id="pointsPerJoin" type="number" min="0" /></div>
+    </div>
+  </section>
+
+  <button class="primary" id="save">💾 Kaydet ve yayın ekranını aç</button>
+
+  <section>
+    <h2>Durum</h2>
+    <div id="status" class="hint">Yayın ekranı açık değil. Önce yukarıdaki butonla aç, sonra bu sekmeye dönüp test edebilirsin.</div>
+    <pre id="debug" hidden></pre>
+  </section>
+
+  <section>
+    <h2>Test (yayın ekranı başka sekmede açıkken)</h2>
+    <div class="row">
+      <input id="tuser" value="TestTaraftar" />
+      <input id="tteam" value="trabzon" placeholder="takım" />
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button data-sim='{"kind":"chat"}'>💬 Takımını yaz</button>
+      <button data-sim='{"kind":"gift","coins":1,"count":5,"giftName":"Gül"}'>🌹 Gül x5</button>
+      <button data-sim='{"kind":"gift","coins":99,"giftName":"Şapka"}'>🎩 99 jeton</button>
+      <button data-sim='{"kind":"gift","coins":1000,"giftName":"Galaksi"}'>🌌 1000 jeton</button>
+      <button data-sim='{"kind":"like","count":50}'>❤️ 50 beğeni</button>
+      <button data-sim='{"kind":"follow"}'>➕ Takip</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="finish">🏆 Turu bitir</button>
+      <button id="reset">🔄 Turu sıfırla</button>
+      <button id="wipe" class="danger">🗑 Tüm kayıtları sil</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Tabletten yayına çıkma</h2>
+    <ol>
+      <li>Ayarları kaydet, yayın ekranı açılır. Paylaş menüsünden <b>Ana Ekrana Ekle</b> de (tam ekran uygulama gibi açılır).</li>
+      <li>TikTok uygulaması → <b>Canlı</b> → <b>Mobil oyun / Ekran paylaşımı</b> → yayını başlat.</li>
+      <li>Taraftar Ligi uygulamasına geç. Ekran yayın boyunca kapanmaz.</li>
+      <li><b>Rahatsız Etmeyin</b> modunu aç, tableti şarja tak.</li>
+    </ol>
+    <p class="hint">Yayın ekranında bağlantı sorunu olursa adresin sonuna <code>?debug=1</code> ekle; TikTok'tan gelen veriler ekranda görünür.</p>
+  </section>
+</main>
+<script type="module">
+  import { loadConfig, saveConfig, channel } from './config.js';
+  const $ = (id) => document.getElementById(id);
+  const RULES = ['roundMinutes', 'pointsPerCoin', 'pointsPerLike', 'pointsPerFollow', 'pointsPerShare', 'pointsPerJoin'];
+  const cfg = loadConfig();
+  $('username').value = cfg.username;
+  $('apiKey').value = cfg.apiKey;
+  $('demo').checked = cfg.demo;
+  for (const k of RULES) $(k).value = cfg.rules[k];
+
+  const bc = channel();
+  $('save').onclick = () => {
+    const next = {
+      ...cfg,
+      username: $('username').value.trim().replace(/^@/, ''),
+      apiKey: $('apiKey').value.trim(),
+      demo: $('demo').checked,
+      rules: { ...cfg.rules, ...Object.fromEntries(RULES.map((k) => [k, Math.max(0, Number($(k).value) || 0)])) },
+    };
+    if (!next.demo && (!next.username || !next.apiKey)) {
+      if (!confirm('Kullanıcı adı veya API anahtarı boş. Demo modunda açılsın mı?')) return;
+    }
+    saveConfig(next);
+    bc.postMessage({ type: 'reload' });
+    window.open('./', 'taraftar-yayin');
+  };
+
+  document.querySelectorAll('[data-sim]').forEach((b) => {
+    b.onclick = () => {
+      const extra = JSON.parse(b.dataset.sim);
+      bc.postMessage({ type: 'sim', user: $('tuser').value, text: $('tteam').value, ...extra });
+    };
+  });
+  $('finish').onclick = () => bc.postMessage({ type: 'finishRound' });
+  $('reset').onclick = () => confirm('Puanlar sıfırlansın mı?') && bc.postMessage({ type: 'resetRound' });
+  $('wipe').onclick = () => confirm('Kupalar, taraftarlar, her şey silinsin mi?') && bc.postMessage({ type: 'wipe' });
+
+  const labels = { connected: ['✅ TikTok yayınına bağlı', 'ok'], connecting: ['⏳ Bağlanıyor…', ''], reconnecting: ['⏳ Yeniden bağlanıyor…', ''], offline: ['⏸ Yayın açık değil, bekleniyor', ''], auth: ['❌ API anahtarı hatalı', 'bad'], error: ['❌ Bağlantı hatası', 'bad'], demo: ['🎮 Demo modu', ''], setup: ['⚙️ Ayar yapılmamış (demo gösteriliyor)', ''] };
+  bc.onmessage = ({ data }) => {
+    if (data?.type !== 'state') return;
+    const s = data.state;
+    const [text, cls] = labels[s.live.state] || [s.live.state, ''];
+    const leader = s.teams[0];
+    $('status').className = cls;
+    $('status').textContent = `${text}${s.live.message ? ` — ${s.live.message}` : ''} • Tur ${s.round.number} • Lider: ${leader?.points ? `${leader.id.toUpperCase()} ${leader.points.toLocaleString('tr-TR')}` : '-'}`;
+    if (s.live.debug?.length) { $('debug').hidden = false; $('debug').textContent = s.live.debug.join('\n'); }
+  };
+</script>
+</body>
+</html>

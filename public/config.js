@@ -9,6 +9,7 @@ export const DEFAULT_CONFIG = {
   relayKey: '',
   apiKey: '',
   demo: false,
+  audio: { music: true, musicVolume: 0.35, sfx: true, sfxVolume: 0.6 },
   rules: {
     roundMinutes: 60,
     championSeconds: 15,

@@ -127,7 +127,7 @@ npm start
 **TikTok LIVE Studio** (bilgisayardan yayın):
 1. Dikey (portre) sahne seç.
 2. Kaynak ekle → **Link / Web sayfası** → `http://localhost:3000` → boyut **1080 x 1920**.
-3. Sesli efekt istersen adresi `http://localhost:3000/?sound=1` yap.
+3. Müzik ve efektler varsayılan olarak açık. Kapatmak için adres: `http://localhost:3000/?sound=0`
 
 **OBS** (TikTok yayın anahtarın varsa): Kaynak → **Tarayıcı** → URL `http://localhost:3000`, genişlik 1080, yükseklik 1920.
 Arkada kamera göstermek istersen `?transparent=1` ekle, arka plan şeffaf olur.
@@ -170,6 +170,15 @@ pm2 save
 | `POINTS_PER_JOIN` | 10 | Turda ilk kez takımını yazana |
 | `ADMIN_TOKEN` | boş | Yönetim paneli şifresi |
 
+### Müzik ve sesler
+
+- Arka planda kısık, özgün bir enstrümantal müzik çalar. Tarayıcıda üretilir, hazır bir şarkı değildir; telif sorunu yoktur.
+- Hediye gelince yumuşak bir çan sesi çıkar. Büyük hediyelerde hafif bir tezahürat, lider değişince kısa bir boru sesi, takımlar sıralamada yükselince yumuşak bir "vınn" sesi duyulur. Efektler üst üste binmesin diye sınırlıdır; efekt çalarken müzik biraz kısılır.
+- Tablette Ayarlar → **Müzik ve sesler** bölümünden müzik ve efektler ayrı ayrı açılıp kapatılabilir, ses seviyeleri ayarlanabilir.
+- Tarayıcılar sesi ancak bir dokunuştan sonra açar. Yayın ekranında "Ses için ekrana dokun" yazısı çıkarsa bir kez dokun.
+- iPhone'da sessiz mod açıksa ses çıkmaz. Bilgisayarda/OBS'te sesi kapatmak için adrese `?sound=0` ekle.
+- Not: Kiralık sunucudan doğrudan yayın yolunda (Yol 2) şimdilik ses gönderilmiyor.
+
 ### Takım eklemek / renk değiştirmek
 
 `public/core/teams.js` dosyasını aç (GitHub sitesinde dosyayı açıp kalem simgesiyle tabletten de düzenleyebilirsin). Her satır bir takım:
@@ -198,6 +207,7 @@ public/core/     oyun mantığı ve takım listesi (tarayıcı ve sunucu ortak k
 public/local.js sunucusuz mod (GitHub Pages / tablet)
 public/euler.js tarayıcıdan TikTok bağlantısı (Euler Stream)
 public/relay-client.js  tarayıcının ücretsiz aktarıcıya bağlantısı
+public/audio.js arka plan müziği ve ses efektleri
 src/relay.js    aktarıcı: TikTok olaylarını tablete iletir
 render.yaml     Render'a tek tıkla kurulum
 public/ayarlar.html  tablet ayarlar sayfası

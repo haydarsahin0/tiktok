@@ -102,8 +102,11 @@ export class TikTokBridge extends EventEmitter {
       console.log(`[tiktok] @${this.username} yayınına bağlandı`);
     } catch (err) {
       const msg = err?.message || String(err);
-      const offline = /offline|not.*live|isn't online|UserOffline/i.test(msg) || err?.name === 'UserOfflineError';
-      this.setStatus({ state: offline ? 'offline' : 'error', message: msg.slice(0, 160) });
+      const offline = /offline|not.*live|isn't online|UserOffline|Room ID/i.test(msg) || err?.name === 'UserOfflineError';
+      this.setStatus({
+        state: offline ? 'offline' : 'error',
+        message: offline ? 'Yayın bulunamadı (kapalı olabilir), 30 sn sonra tekrar denenecek' : msg.slice(0, 160),
+      });
       console.warn(`[tiktok] bağlanamadı (${offline ? 'yayın kapalı' : 'hata'}): ${msg}`);
       this.scheduleReconnect(offline ? 30000 : undefined);
     } finally {

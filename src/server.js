@@ -9,6 +9,7 @@ import { TEAMS } from '../public/core/teams.js';
 import { TikTokBridge } from './tiktok.js';
 import { startDemo } from '../public/core/demo.js';
 import { startStreamer, streamTarget } from './streamer.js';
+import { createRelay } from './relay.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 try { process.loadEnvFile(path.join(root, '.env')); } catch { /* .env yoksa sorun değil */ }
@@ -17,7 +18,9 @@ const env = process.env;
 const num = (v, d) => (v === undefined || v === '' || Number.isNaN(Number(v)) ? d : Number(v));
 const PORT = num(env.PORT, 3000);
 const USERNAME = (env.TIKTOK_USERNAME || '').trim();
-const DEMO = process.argv.includes('--demo') || env.DEMO === '1' || env.DEMO === 'true' || !USERNAME;
+// Sadece aktarıcı modu (ücretsiz bulut): oyun tablette çalışır, sunucu sadece TikTok olaylarını iletir
+const RELAY_ONLY = env.RELAY_ONLY === '1' || env.RELAY_ONLY === 'true';
+const DEMO = !RELAY_ONLY && (process.argv.includes('--demo') || env.DEMO === '1' || env.DEMO === 'true' || !USERNAME);
 const ADMIN_TOKEN = env.ADMIN_TOKEN || '';
 
 const ruleEnv = {
@@ -48,9 +51,16 @@ let liveStatus = { state: DEMO ? 'demo' : 'idle', username: USERNAME, viewers: 0
 // ---------- web sunucusu ----------
 const app = express();
 app.use(express.json());
+// Aktarıcıyı uyanık tutmak için tabletin çağırdığı adres (her siteden erişilebilir)
+app.get('/api/ping', (_req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.json({ ok: true, relay: true, time: Date.now() });
+});
+
 app.use(express.static(path.join(root, 'public')));
 app.get('/api/teams', (_req, res) => res.json(TEAMS));
-app.get('/api/state', (_req, res) => res.json({ ...game.snapshot(), live: liveStatus }));
+// Aktarıcı modunda /api/state yok: sayfa bunu görünce oyunu tarayıcıda (tablette) çalıştırır
+if (!RELAY_ONLY) app.get('/api/state', (_req, res) => res.json({ ...game.snapshot(), live: liveStatus }));
 
 const requireAdmin = (req, res, next) => {
   if (!ADMIN_TOKEN || req.get('x-admin-token') === ADMIN_TOKEN || req.query.token === ADMIN_TOKEN) return next();
@@ -72,7 +82,21 @@ app.post('/api/admin/new-round', requireAdmin, (_req, res) => { game.resetRound(
 app.post('/api/admin/finish-round', requireAdmin, (_req, res) => { game.finishRound(); res.json({ ok: true }); });
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ noServer: true });
+const relayUpgrade = createRelay({
+  signApiKey: env.EULER_API_KEY,
+  key: env.RELAY_KEY || '',
+  allowedUsers: (env.RELAY_USERS || '').split(',').map((u) => u.trim().replace(/^@/, '').toLowerCase()).filter(Boolean),
+  fake: env.RELAY_FAKE === '1',
+});
+server.on('upgrade', (req, socket, head) => {
+  if (relayUpgrade(req, socket, head)) return;
+  if (new URL(req.url, 'http://x').pathname === '/ws') {
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+  } else {
+    socket.destroy();
+  }
+});
 
 function broadcast(msg) {
   const data = JSON.stringify(msg);
@@ -87,20 +111,22 @@ wss.on('connection', (ws) => {
 game.on('event', (e) => broadcast({ type: 'event', event: e }));
 
 // Ekran durumu saniyede 4 kez gönderilir
-setInterval(() => {
+if (!RELAY_ONLY) setInterval(() => {
   game.tick();
   broadcast({ type: 'state', state: { ...game.snapshot(), live: liveStatus } });
 }, 250);
 
 // Kayıt
-setInterval(() => {
+if (!RELAY_ONLY) setInterval(() => {
   try { game.save(); } catch (err) { console.error('[kayıt] yazılamadı:', err.message); }
 }, 5000);
 
 // ---------- TikTok ya da demo ----------
 let bridge = null;
 let stopDemo = null;
-if (DEMO) {
+if (RELAY_ONLY) {
+  console.log('[aktarıcı] Sadece aktarıcı modu: tablet /relay?user=KULLANICI adresine bağlanır.');
+} else if (DEMO) {
   stopDemo = startDemo(game, { speed: num(env.DEMO_SPEED, 1) });
   console.log('[demo] Sahte izleyicilerle çalışıyor. Gerçek yayın için .env dosyasına TIKTOK_USERNAME yaz.');
 } else {
@@ -117,7 +143,7 @@ server.listen(PORT, () => {
   console.log(`\n⚽ Taraftar Ligi çalışıyor`);
   console.log(`   Yayın ekranı : http://localhost:${PORT}/`);
   console.log(`   Yönetim      : http://localhost:${PORT}/admin.html${ADMIN_TOKEN ? '?token=...' : ''}`);
-  console.log(`   Mod          : ${DEMO ? 'DEMO' : `@${USERNAME}`} | Tur: ${game.rules.roundMinutes || '∞'} dk\n`);
+  console.log(`   Mod          : ${RELAY_ONLY ? 'SADECE AKTARICI' : DEMO ? 'DEMO' : `@${USERNAME}`} | Tur: ${game.rules.roundMinutes || '∞'} dk\n`);
   const target = streamTarget(env);
   if (target) {
     streamer = startStreamer({
@@ -137,7 +163,7 @@ async function shutdown() {
   stopDemo?.();
   streamer?.stop();
   await bridge?.stop();
-  try { game.save(true); } catch (err) { console.error(err); }
+  try { if (!RELAY_ONLY) game.save(true); } catch (err) { console.error(err); }
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

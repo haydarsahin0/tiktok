@@ -1,0 +1,19 @@
+# Render.com'a tek tıkla kurulum (ücretsiz plan):
+# https://render.com/deploy?repo=https://github.com/haydarsahin0/tiktok
+# Sunucu "sadece aktarıcı" modunda çalışır: oyun tablette, TikTok verisi buradan gelir.
+services:
+  - type: web
+    name: taraftar-ligi
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/server.js
+    healthCheckPath: /api/ping
+    envVars:
+      - key: RELAY_ONLY
+        value: "1"
+      - key: NODE_VERSION
+        value: "22"
+      # Sadece senin kullanıcı adınla kullanılabilsin (başkaları senin sunucunu kullanmasın)
+      - key: RELAY_USERS
+        sync: false

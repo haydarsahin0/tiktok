@@ -21,34 +21,38 @@ Galatasaray, Fenerbahçe, Beşiktaş, Trabzonspor'un yanında Sivas'tan Amed'e, 
 - Tur süresi dolunca (varsayılan 60 dk) şampiyon ekranı gelir, takımın kupa sayısı artar, puanlar sıfırlanır, yeni tur başlar.
 - Kupalar, taraftarların takımı ve devam eden tur `data/state.json` dosyasına kaydedilir. Program kapanıp açılsa da kaldığı yerden devam eder.
 
-## En kolay yol: Tablet / telefon + GitHub Pages (kurulum yok)
+## En kolay yol: Tablet + ücretsiz Render (bilgisayar yok, ücret yok)
 
-Oyun tamamen tarayıcının içinde çalışır. Sunucu, bilgisayar ya da uygulama kurmak gerekmez.
-Puanlar, kupalar ve taraftarlar tabletin kendi hafızasında saklanır.
+Oyun tabletin tarayıcısında çalışır. Puanlar, kupalar ve taraftarlar tabletin hafızasında saklanır.
+TikTok'tan gelen yorum ve hediyeleri ücretsiz bir bulut sunucusu (Render) **aktarır**. Sunucu sadece postacıdır, hiçbir şey saklamaz.
 
-**Bir kerelik hazırlık:**
+**Bir kerelik kurulum (tabletten, 5 dakika):**
 
-1. **GitHub Pages'i aç:** GitHub'da bu depoyu aç → **Settings** → **Pages** → *Source*: **Deploy from a branch** →
-   Branch: **gh-pages**, klasör: **/ (root)** → **Save**. Bir iki dakika sonra site yayında:
-   `https://haydarsahin0.github.io/tiktok/`
-   (Kodda değişiklik olunca yayın ekranı `gh-pages` dalına otomatik kopyalanır.)
-2. **Euler Stream hesabı aç:** [eulerstream.com](https://www.eulerstream.com) → kaydol → **API Key** oluştur.
-   Tarayıcı TikTok'a doğrudan bağlanamadığı için yorum ve hediyeler bu servis üzerinden gelir.
-   Euler ücretli bir servis; deneme ya da küçük bir plan olup olmadığını sitesinden kontrol et.
+1. [render.com](https://render.com) adresinde GitHub hesabınla ücretsiz kaydol.
+2. Şu bağlantıyı aç: **https://render.com/deploy?repo=https://github.com/haydarsahin0/tiktok**
+3. `RELAY_USERS` kutusuna TikTok kullanıcı adını yaz (başkaları senin sunucunu kullanamasın) → **Apply / Deploy**.
+4. Birkaç dakika sonra Render sana bir adres verir, ör. `https://taraftar-ligi.onrender.com`.
 
 **Her yayında:**
 
-1. Tablette `https://haydarsahin0.github.io/tiktok/ayarlar.html` aç, TikTok kullanıcı adını ve API anahtarını yaz → **Kaydet**.
-2. Açılan yayın ekranında Paylaş menüsü → **Ana Ekrana Ekle** (sonraki seferlerde direkt bu simgeden açarsın, tam ekran olur).
-3. TikTok → **Canlı** → **Mobil oyun / Ekran paylaşımı** → yayını başlat → Taraftar Ligi'ne geç.
-4. **Rahatsız Etmeyin** modunu aç, tableti şarja tak. Ekran yayın boyunca kapanmaz.
+1. Tablette Render adresinin sonuna `/ayarlar.html` ekleyip aç (ör. `https://taraftar-ligi.onrender.com/ayarlar.html`).
+2. TikTok kullanıcı adını yaz → **Aktarıcıyı test et** → **Kaydet**.
+3. Açılan yayın ekranında Paylaş menüsü → **Ana Ekrana Ekle**.
+4. TikTok → **Canlı** → **Mobil oyun / Ekran paylaşımı** → yayını başlat → Taraftar Ligi'ne geç.
+5. **Rahatsız Etmeyin** modunu aç, otomatik kilidi kapat, tableti şarja tak.
 
-Ayarlar sayfasında test butonları da var (hediye at, turu bitir…). Yayın ekranı başka sekmede açıkken çalışırlar.
-Bağlantı sorunu olursa yayın ekranının adresine `?debug=1` ekle; TikTok'tan gelen veriler ekranda görünür.
+Notlar:
+- Render'ın ücretsiz sunucusu 15 dakika kimse kullanmayınca uyur. İlk açılışta uyanması ~1 dakika sürebilir. Yayın ekranı açıkken sunucuyu 4 dakikada bir dürterek uyanık tutar.
+- Kullanıcı adına `test` yazarsan aktarıcı sahte izleyiciler gönderir. Kurulumu yayın açmadan denemek için kullanabilirsin.
+- Ayarlar sayfasında test butonları da var (hediye at, turu bitir…). Yayın ekranı başka sekmede açıkken çalışırlar.
+- Bağlantı sorunu olursa yayın ekranının adresine `?debug=1` ekle; gelen veriler ekranda görünür.
 
-## Diğer yollar (Euler Stream olmadan)
+**İstersen Euler Stream ile:** Ayarlar sayfasında "Euler Stream" seçip ücretli API anahtarını yazabilirsin. Bu durumda Render gerekmez, oyun GitHub Pages'ten de açılabilir: `https://haydarsahin0.github.io/tiktok/`
+(GitHub → Settings → Pages → *Deploy from a branch* → `gh-pages` / root.)
 
-Euler Stream kullanmak istemezsen: Yol 1 (Android telefonda Termux, ücretsiz) ya da Yol 2 (kiralık sunucu, cihaz gerekmez).
+## Diğer yollar
+
+Yol 1: Android telefonda Termux (ücretsiz, telefon hem oyunu hem bağlantıyı çalıştırır). Yol 2: kiralık sunucu, TikTok'a doğrudan yayın gönderir (cihaz gerekmez, yayın anahtarı ister).
 
 | | Yol 1: Sadece telefon | Yol 2: Kiralık bulut sunucu |
 |---|---|---|
@@ -193,6 +197,9 @@ Ekranda kulüp logoları kullanılmıyor (telif/marka sorunu olmasın diye); tak
 public/core/     oyun mantığı ve takım listesi (tarayıcı ve sunucu ortak kullanır)
 public/local.js sunucusuz mod (GitHub Pages / tablet)
 public/euler.js tarayıcıdan TikTok bağlantısı (Euler Stream)
+public/relay-client.js  tarayıcının ücretsiz aktarıcıya bağlantısı
+src/relay.js    aktarıcı: TikTok olaylarını tablete iletir
+render.yaml     Render'a tek tıkla kurulum
 public/ayarlar.html  tablet ayarlar sayfası
 src/server.js   web sunucusu, ekrana canlı veri gönderir
 src/tiktok.js   TikTok canlı yayın bağlantısı (otomatik yeniden bağlanma)

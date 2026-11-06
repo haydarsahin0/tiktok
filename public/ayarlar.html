@@ -16,7 +16,8 @@
     label { display: block; margin: 10px 0 4px; font-weight: 600; }
     .hint { color: var(--muted); font-size: 14px; margin: 2px 0 0; }
     input, button { font: inherit; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: #0d1117; color: var(--text); width: 100%; }
-    input[type=checkbox] { width: auto; transform: scale(1.4); margin-right: 8px; }
+    input[type=checkbox], input[type=radio] { width: auto; transform: scale(1.4); margin-right: 10px; }
+    .choice { font-weight: 500; display: flex; align-items: center; margin: 8px 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
     .grid label { margin-top: 0; }
     button { cursor: pointer; background: #21262d; font-weight: 600; }
@@ -39,10 +40,26 @@
     <h2>1. TikTok bağlantısı</h2>
     <label for="username">TikTok kullanıcı adın</label>
     <input id="username" placeholder="ör. taraftarligi (@ olmadan)" autocomplete="off" autocapitalize="off" />
-    <label for="apiKey">Euler Stream API anahtarı</label>
-    <input id="apiKey" type="password" placeholder="eulerstream.com → hesabın → API Keys" autocomplete="off" />
-    <p class="hint">Tarayıcı TikTok'a doğrudan bağlanamaz; yorum ve hediyeler Euler Stream üzerinden gelir. Anahtar sadece bu tabletin hafızasında saklanır, kimseyle paylaşılmaz.</p>
-    <label><input id="demo" type="checkbox" />Demo modu (sahte izleyicilerle dene)</label>
+
+    <label>Yorumlar ve hediyeler nereden gelsin?</label>
+    <label class="choice"><input type="radio" name="source" value="relay" /> <b>Ücretsiz aktarıcı</b> (Render) — önerilen</label>
+    <label class="choice"><input type="radio" name="source" value="euler" /> Euler Stream (ücretli API anahtarı)</label>
+
+    <div id="relayBox">
+      <label for="relayUrl">Aktarıcı adresi</label>
+      <input id="relayUrl" placeholder="ör. https://taraftar-ligi.onrender.com" autocomplete="off" autocapitalize="off" />
+      <p class="hint" id="relayHint">Oyunu doğrudan Render adresinden açtıysan boş bırakabilirsin. Henüz kurmadıysan: <a href="https://render.com/deploy?repo=https://github.com/haydarsahin0/tiktok" target="_blank" rel="noopener">tek tıkla Render'a kur</a>.</p>
+      <label for="relayKey">Aktarıcı şifresi (Render'da RELAY_KEY koyduysan)</label>
+      <input id="relayKey" type="password" autocomplete="off" />
+    </div>
+    <div id="eulerBox">
+      <label for="apiKey">Euler Stream API anahtarı</label>
+      <input id="apiKey" type="password" placeholder="eulerstream.com → hesabın → API Keys" autocomplete="off" />
+    </div>
+    <p class="hint">Bilgiler sadece bu tabletin hafızasında saklanır.</p>
+    <label class="choice"><input id="demo" type="checkbox" />Demo modu (sahte izleyicilerle dene)</label>
+    <button id="testConn" type="button" style="margin-top:10px">🔌 Aktarıcıyı test et</button>
+    <p class="hint" id="testResult"></p>
   </section>
 
   <section>
@@ -99,12 +116,39 @@
 </main>
 <script type="module">
   import { loadConfig, saveConfig, channel } from './config.js';
+  import { relayBase, sameOriginRelay } from './relay-client.js';
   const $ = (id) => document.getElementById(id);
   const RULES = ['roundMinutes', 'pointsPerCoin', 'pointsPerLike', 'pointsPerFollow', 'pointsPerShare', 'pointsPerJoin'];
   const cfg = loadConfig();
   $('username').value = cfg.username;
   $('apiKey').value = cfg.apiKey;
+  $('relayUrl').value = cfg.relayUrl || '';
+  $('relayKey').value = cfg.relayKey || '';
   $('demo').checked = cfg.demo;
+  const src = () => document.querySelector('input[name=source]:checked')?.value || 'relay';
+  document.querySelector(`input[name=source][value=${cfg.source === 'euler' ? 'euler' : 'relay'}]`).checked = true;
+  const onRelaySite = await sameOriginRelay();
+  if (onRelaySite) $('relayHint').textContent = 'Bu sayfa zaten aktarıcıdan açıldı, adresi boş bırakabilirsin. ✅';
+  const showBoxes = () => {
+    $('relayBox').hidden = src() !== 'relay';
+    $('eulerBox').hidden = src() !== 'euler';
+    $('testConn').hidden = src() !== 'relay';
+  };
+  document.querySelectorAll('input[name=source]').forEach((r) => { r.onchange = showBoxes; });
+  showBoxes();
+
+  $('testConn').onclick = async () => {
+    const base = relayBase($('relayUrl').value) || (onRelaySite ? location.origin : '');
+    if (!base) { $('testResult').textContent = '❌ Aktarıcı adresi boş.'; return; }
+    $('testResult').textContent = '⏳ Deneniyor… (sunucu uyuyorsa 1 dakika sürebilir)';
+    try {
+      const r = await fetch(`${base}/api/ping`, { cache: 'no-store' });
+      const j = await r.json();
+      $('testResult').textContent = j.relay ? '✅ Aktarıcı çalışıyor.' : '⚠️ Sunucu cevap verdi ama aktarıcı modunda değil (RELAY_ONLY=1 olmalı).';
+    } catch {
+      $('testResult').textContent = '❌ Ulaşılamadı. Adresi kontrol et ya da 1 dakika sonra tekrar dene.';
+    }
+  };
   for (const k of RULES) $(k).value = cfg.rules[k];
 
   const bc = channel();
@@ -113,11 +157,17 @@
       ...cfg,
       username: $('username').value.trim().replace(/^@/, ''),
       apiKey: $('apiKey').value.trim(),
+      source: src(),
+      relayUrl: relayBase($('relayUrl').value),
+      relayKey: $('relayKey').value.trim(),
       demo: $('demo').checked,
       rules: { ...cfg.rules, ...Object.fromEntries(RULES.map((k) => [k, Math.max(0, Number($(k).value) || 0)])) },
     };
-    if (!next.demo && (!next.username || !next.apiKey)) {
-      if (!confirm('Kullanıcı adı veya API anahtarı boş. Demo modunda açılsın mı?')) return;
+    const missing = !next.username ? 'Kullanıcı adı'
+      : next.source === 'euler' && !next.apiKey ? 'Euler API anahtarı'
+      : next.source === 'relay' && !next.relayUrl && !onRelaySite ? 'Aktarıcı adresi' : '';
+    if (!next.demo && missing) {
+      if (!confirm(`${missing} boş. Demo modunda açılsın mı?`)) return;
     }
     saveConfig(next);
     bc.postMessage({ type: 'reload' });

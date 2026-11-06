@@ -27,5 +27,5 @@ if (await hasServer()) {
   connectServer();
 } else {
   const { startLocal } = await import('./local.js');
-  startLocal(O);
+  await startLocal(O);
 }

@@ -4,6 +4,9 @@ const SAVE_KEY = 'taraftar.save';
 
 export const DEFAULT_CONFIG = {
   username: '',
+  source: 'relay', // 'relay' (ücretsiz aktarıcı) | 'euler'
+  relayUrl: '',
+  relayKey: '',
   apiKey: '',
   demo: false,
   rules: {

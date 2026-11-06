@@ -3,13 +3,28 @@ import { TEAMS } from './core/teams.js';
 import { Game } from './core/game.js';
 import { startDemo } from './core/demo.js';
 import { connectEuler } from './euler.js';
+import { connectRelay, sameOriginRelay } from './relay-client.js';
 import { loadConfig, browserStorage, channel } from './config.js';
 
-export function startLocal(O) {
+export async function startLocal(O) {
   const cfg = loadConfig();
   const bc = channel();
   const game = new Game({ rules: cfg.rules, storage: browserStorage });
-  const configured = cfg.username && cfg.apiKey && !cfg.demo;
+
+  // TikTok verisi nereden gelecek?
+  //  relay: ücretsiz aktarıcı (Render vb.) — bu sayfa aktarıcıdan açıldıysa adres otomatik
+  //  euler: Euler Stream (ücretli API anahtarı)
+  let source = null;
+  let relayUrl = cfg.relayUrl;
+  if (!cfg.demo && cfg.username) {
+    if (cfg.source === 'euler') source = cfg.apiKey ? 'euler' : null;
+    else {
+      if (!relayUrl && (await sameOriginRelay())) relayUrl = location.origin;
+      if (relayUrl) source = 'relay';
+      else if (cfg.apiKey) source = 'euler';
+    }
+  }
+  const configured = Boolean(source);
   let live = { state: configured ? 'idle' : cfg.demo ? 'demo' : 'setup', username: cfg.username, viewers: 0, message: '', debug: null };
 
   O.setTeams(TEAMS);
@@ -34,18 +49,19 @@ export function startLocal(O) {
 
   let stopDemo = null;
   let conn = null;
-  if (configured) {
-    conn = connectEuler({
-      username: cfg.username,
-      apiKey: cfg.apiKey,
-      url: cfg.wsUrl, // sadece test için başka sunucu adresi
-      onChat: (u, t) => game.onChat(u, t),
-      onGift: (u, g) => game.onGift(u, g),
-      onLike: (u, c) => game.onLike(u, c),
-      onSocial: (u, k) => game.onSocial(u, k),
-      onStatus: (patch) => { live = { ...live, ...patch }; },
-      onDebug: (lines) => { live = { ...live, debug: lines }; },
-    });
+  const handlers = {
+    username: cfg.username,
+    onChat: (u, t) => game.onChat(u, t),
+    onGift: (u, g) => game.onGift(u, g),
+    onLike: (u, c) => game.onLike(u, c),
+    onSocial: (u, k) => game.onSocial(u, k),
+    onStatus: (patch) => { live = { ...live, ...patch }; },
+    onDebug: (lines) => { live = { ...live, debug: lines }; },
+  };
+  if (source === 'relay') {
+    conn = connectRelay({ ...handlers, url: relayUrl, key: cfg.relayKey });
+  } else if (source === 'euler') {
+    conn = connectEuler({ ...handlers, apiKey: cfg.apiKey, url: cfg.wsUrl /* sadece test için */ });
   } else {
     // Ayar yapılmamışsa ayarlar butonunu göster, demo ile başla ki ekran boş görünmesin
     if (!cfg.demo) document.getElementById('tap')?.classList.add('show');

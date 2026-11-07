@@ -70,7 +70,9 @@ Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya v
 - Kutlamalar: Hilal'de **hilal** yağar, Zoktay'da **şimşek** çakar, Mina'da **elmas**, Esin'de **çiçek** yağar, Lidya'da **kelebekler** uçar, Sueda'da dev **"SUEDA!"** tezahüratı.
 - Ayarları, puanları ve kupaları futbol liginden **tamamen ayrıdır**. Aynı tablette iki lig birbirini etkilemez.
 - Aynı Render sunucusunu ve aynı ücretsiz aktarıcıyı kullanır, ek kurulum gerekmez. Kullanıcı adına `test` yazarsan sahte fanlar üye adlarını yazar.
-- Ana ekrana eklerken kendi simgesi (pembe-mor yıldız) çıkar. Hayran yapımı bir oyundur; üyelerin fotoğrafı kullanılmaz, renkler oyun için seçilmiştir.
+- Ana ekrana eklerken kendi simgesi (pembe-mor yıldız) çıkar. Hayran yapımı bir oyundur.
+- Üye fotoğrafları `public/manifest/img/` klasöründe (Hilal, Lidya, Zoktay). Fotoğrafı olmayan üyede harfli rozet görünür.
+  Yeni fotoğraf eklemek için kare bir `.jpg` koyup `public/core/manifest.js` içinde o üyeye `photo: 'img/ad.jpg'` yaz.
 - Üye eklemek, renk ya da yazı değiştirmek: `public/core/manifest.js` (üyeler, renkler) ve `public/manifest/theme.js` (yazılar, kutlamalar).
 
 ## Diğer yollar

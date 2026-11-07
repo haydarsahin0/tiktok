@@ -116,6 +116,7 @@
     championTitle: (n) => `TUR ${n} ŞAMPİYONU`,
     championMvps: 'Şampiyonluğu getiren krallar',
     leaderSub: (name) => `${name} ZİRVEDE`,
+    nextRound: (sec) => `Yeni tur ${sec} sn içinde başlıyor — takımını yaz, hazır ol!`,
     topN: 8,
     celebrations: CELEB,
     defaultCelebration: DEFAULT_CELEB,
@@ -174,6 +175,7 @@
       TEAMS = Object.fromEntries(teams.map((t) => [t.id, t]));
       teamOrder = teams.map((t) => t.id);
       TOP_N = Math.min(T.topN, teams.length);
+      for (const t of teams) if (t.photo) image(t.photo); // fotoğrafları önceden yükle
     },
     setState(s) {
       const order = s.teams.slice(0, TOP_N).filter((t) => t.points > 0).map((t) => t.id);
@@ -389,6 +391,14 @@
   }
 
   function badge(t, x, y, r) {
+    if (T.icon === 'idol' && t.photo && drawPhoto(t.photo, x, y, r)) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.lineWidth = Math.max(2, r * 0.16);
+      ctx.strokeStyle = t.colors[0];
+      ctx.stroke();
+      return;
+    }
     ctx.save();
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -439,10 +449,41 @@
     ctx.closePath();
   }
 
-  // Manifest Ligi: forma yerine üyenin parlak rozeti (harf + yıldız)
+  // Fotoğrafı daire içine "cover" yerleştirir; fotoğraf henüz yüklenmediyse false döner
+  function drawPhoto(url, x, y, r) {
+    const img = image(url);
+    if (!img) return false;
+    const s = Math.min(img.naturalWidth, img.naturalHeight);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
+    ctx.drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, x - r, y - r, r * 2, r * 2);
+    ctx.restore();
+    return true;
+  }
+
+  // Manifest Ligi: forma yerine üyenin parlak rozeti (fotoğraf varsa fotoğraf, yoksa harf) + yıldız
   function idolBadge(t, cx, top, w) {
     const r = w * 0.46;
     const y = top + w * 0.5;
+    if (t.photo && image(t.photo)) {
+      ctx.save();
+      ctx.shadowColor = t.colors[0];
+      ctx.shadowBlur = 24;
+      ctx.beginPath(); ctx.arc(cx, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = t.colors[0]; ctx.fill();
+      ctx.restore();
+      drawPhoto(t.photo, cx, y, r - Math.max(3, w * 0.04));
+      ctx.lineWidth = Math.max(4, w * 0.06);
+      ctx.strokeStyle = t.colors[0];
+      ctx.beginPath(); ctx.arc(cx, y, r - ctx.lineWidth / 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = Math.max(2, w * 0.02);
+      ctx.strokeStyle = '#fff';
+      ctx.beginPath(); ctx.arc(cx, y, r, 0, Math.PI * 2); ctx.stroke();
+      starPath(cx + r * 0.78, y - r * 0.78, w * 0.16);
+      ctx.fillStyle = '#fff6b0'; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#b8860b'; ctx.stroke();
+      return;
+    }
     ctx.save();
     ctx.shadowColor = t.colors[0];
     ctx.shadowBlur = 22;
@@ -1261,7 +1302,7 @@
       });
     }
     const left = Math.max(0, Math.ceil((state.championUntil - serverNow()) / 1000));
-    text(`Yeni tur ${left} sn içinde başlıyor — takımını yaz, hazır ol!`, W / 2, 1010, { size: 32, weight: 700, stroke: 6, max: W - 60 });
+    text(T.nextRound(left), W / 2, 1010, { size: 32, weight: 700, stroke: 6, max: W - 60 });
     return true;
   }
 

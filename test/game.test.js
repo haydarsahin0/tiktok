@@ -88,3 +88,25 @@ test('TikTok olay alanları iki formatta da okunur', () => {
   const g2 = readGift({ repeatCount: 1, diamondCount: 99, giftName: 'Şapka', giftType: 2 });
   assert.equal(g2.coins, 99); assert.equal(g2.name, 'Şapka');
 });
+
+test('takım kaptanı: en çok puan getiren, el değişince duyurulur', () => {
+  let t = 1_000_000;
+  const g = new Game({ clock: () => t, rules: { pointsPerCoin: 100, pointsPerJoin: 10, captainMinPoints: 1000, captainCooldownSec: 20 } });
+  const events = [];
+  g.on('event', (e) => { if (e.type === 'captain') events.push(e); });
+  g.onChat(user('a'), 'trabzon');
+  g.onGift(user('a'), { coins: 5 }); // a: 510
+  assert.equal(g.snapshot().teams.find((x) => x.id === 'ts').captain.id, 'a');
+  assert.equal(events.length, 0); // ilk kaptan sessizce belirlenir
+  g.onChat(user('b'), 'trabzon');
+  g.onGift(user('b'), { coins: 20 }); // b: 2010 > a
+  assert.equal(g.snapshot().teams.find((x) => x.id === 'ts').captain.id, 'b');
+  assert.equal(events.length, 1);
+  assert.equal(events[0].previous.id, 'a');
+  g.onGift(user('a'), { coins: 30 }); // a geri aldı ama 20 sn dolmadı: duyuru yok
+  assert.equal(g.snapshot().teams.find((x) => x.id === 'ts').captain.id, 'a');
+  assert.equal(events.length, 1);
+  t += 21_000;
+  g.onGift(user('b'), { coins: 20 }); // b tekrar öne geçti, süre doldu: duyuru
+  assert.equal(events.length, 2);
+});

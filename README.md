@@ -188,6 +188,25 @@ pm2 save
 - iPhone'da sessiz mod açıksa ses çıkmaz. Bilgisayarda/OBS'te sesi kapatmak için adrese `?sound=0` ekle.
 - Not: Kiralık sunucudan doğrudan yayın yolunda (Yol 2) şimdilik ses gönderilmiyor.
 
+### Takıma özel kutlamalar ve kaptanlar
+
+- Bir takım liderliği alınca **kendine özel kutlama** yapılır (sesiyle birlikte):
+  Trabzonspor'da taraftarlar sahaya inip **horon** teper, Galatasaray'da **aslan kükrer**, Fenerbahçe'de **kanaryalar** uçar,
+  Beşiktaş ve Konyaspor'da **kartal** süzülür, Bursaspor'da **timsah**, Antalyaspor'da **akrep**, Denizlispor'da **horoz** geçer,
+  Sivasspor'da dev **"YİĞİDO!"**, Göztepe'de "GÖZ GÖZ!", Karşıyaka'da "KAF KAF!", Eskişehirspor'da "ES ES!", Amedspor'da "AMED!" tezahüratı,
+  Erzurumspor'da **kar**, Rizespor'da **çay**, Giresun ve Ordu'da **fındık**, Malatya'da **kayısı**, Urfa'da **isot**, Antep'te **fıstık** yağar,
+  Samsunspor'da **kırmızı şimşek** çakar. Diğer takımlarda havai fişek patlar.
+- Lider çok sık değişirse kutlama en fazla 25 saniyede bir yapılır, arada kısa "ZİRVE DEĞİŞTİ" yazısı çıkar.
+- Ayarlar → Test bölümünde takım adını yazıp **🎉 Kutlamayı göster** ile istediğin takımın kutlamasını önizleyebilirsin.
+- **Takım kaptanı:** Her takımın bu turda en çok puan getiren taraftarı kaptandır. Fotoğrafı ve adı, kaptan bandıyla ("C") o takımın sütununda görünür.
+  Kaptanlık el değiştirince "YENİ KAPTAN!" kartı çıkar (en az 10 jetonluk katkıyla; aynı takımda en fazla 20 saniyede bir).
+
+### Ekran düzeni (TikTok arayüzü)
+
+TikTok canlı yayında ekranın üstünü (yayıncı adı, izleyici sayısı) ve altını (yorumlar, hediye butonları) kendi arayüzüyle kapatır.
+Bu yüzden oyunun önemli her şeyi ortadaki güvenli bölgede durur; üst ve alt kenarlarda sadece süs ve kayan yazı vardır.
+Uzun ekranlı telefonlarda görüntü ekranın boyuna uzar, siyah şerit kalmaz. Kontrol için adrese `?guides=1` ekle: kapanan bölgeler kırmızı görünür.
+
 ### Takım eklemek / renk değiştirmek
 
 `public/core/teams.js` dosyasını aç (GitHub sitesinde dosyayı açıp kalem simgesiyle tabletten de düzenleyebilirsin). Her satır bir takım:

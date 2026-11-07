@@ -113,6 +113,7 @@
       <button data-sim='{"kind":"gift","coins":1000,"giftName":"Galaksi"}'>🌌 1000 jeton</button>
       <button data-sim='{"kind":"like","count":50}'>❤️ 50 beğeni</button>
       <button data-sim='{"kind":"follow"}'>➕ Takip</button>
+      <button id="celebrate">🎉 Kutlamayı göster</button>
     </div>
     <div class="row" style="margin-top:8px">
       <button id="finish">🏆 Turu bitir</button>
@@ -239,6 +240,7 @@
       bc.postMessage({ type: 'sim', user: $('tuser').value, text: $('tteam').value, ...extra });
     };
   });
+  $('celebrate').onclick = () => bc.postMessage({ type: 'celebrate', text: $('tteam').value });
   $('finish').onclick = () => bc.postMessage({ type: 'finishRound' });
   $('reset').onclick = () => confirm('Puanlar sıfırlansın mı?') && bc.postMessage({ type: 'resetRound' });
   $('wipe').onclick = () => confirm('Kupalar, taraftarlar, her şey silinsin mi?') && bc.postMessage({ type: 'wipe' });

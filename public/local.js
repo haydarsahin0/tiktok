@@ -1,5 +1,5 @@
 // Sunucusuz mod: oyun tamamen bu tarayıcı sekmesinde çalışır (GitHub Pages / tablet / telefon).
-import { TEAMS } from './core/teams.js';
+import { TEAMS, findTeam } from './core/teams.js';
 import { Game } from './core/game.js';
 import { startDemo } from './core/demo.js';
 import { connectEuler } from './euler.js';
@@ -77,6 +77,10 @@ export async function startLocal(O) {
       else if (msg.kind === 'gift') game.onGift(u, { name: msg.giftName || 'Hediye', coins: Number(msg.coins) || 1, count: Number(msg.count) || 1 });
       else if (msg.kind === 'like') game.onLike(u, Number(msg.count) || 10);
       else if (msg.kind === 'follow' || msg.kind === 'share') game.onSocial(u, msg.kind);
+    } else if (msg.type === 'celebrate') {
+      // Ayarlar sayfasından: bir takımın kutlamasını önizle
+      const t = findTeam(msg.text || '');
+      if (t) O.event({ type: 'leader', team: t.id, force: true });
     } else if (msg.type === 'audio') {
       window.TaraftarAudio?.configure(msg.audio);
     } else if (msg.type === 'finishRound') {

@@ -358,6 +358,164 @@
     o.frequency.exponentialRampToValueAtTime(38, t + 0.5);
   }
 
+  // ---------- takım kutlama sesleri ----------
+  function horonTune(t) {
+    // Karadeniz horonu esintisi: hızlı kemençe benzeri ezgi (7/16 ritim: 2+2+3) + davul
+    const s16 = 60 / 170 / 2; // hızlı on altılık
+    const groups = [2, 2, 3];
+    const melody = [76, 74, 76, 77, 76, 74, 72, 74, 76, 74, 72, 71, 72, 74, 76, 79, 77, 76, 74, 72, 74];
+    let tt = t;
+    let n = 0;
+    for (let bar = 0; bar < 3; bar++) {
+      for (const g of groups) {
+        const dur = g * s16;
+        const m = melody[n++ % melody.length];
+        const gain = ctx.createGain();
+        const f = ctx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.frequency.value = 1500;
+        f.Q.value = 0.8;
+        f.connect(gain).connect(sfxVol);
+        env(gain, tt, 0.05, 0.015, dur * 0.95, 0.0001);
+        const o = osc('sawtooth', mtof(m), tt, tt + dur + 0.05, f);
+        // kemençe titreşimi (vibrato)
+        const lfo = ctx.createOscillator();
+        const lg = ctx.createGain();
+        lfo.frequency.value = 7;
+        lg.gain.value = 9;
+        lfo.connect(lg).connect(o.frequency);
+        lfo.start(tt);
+        lfo.stop(tt + dur + 0.05);
+        // davul: grubun başında
+        const k = ctx.createGain();
+        k.connect(sfxVol);
+        env(k, tt, 0.12, 0.004, 0.18);
+        const ko = osc('sine', 120, tt, tt + 0.22, k);
+        ko.frequency.exponentialRampToValueAtTime(55, tt + 0.12);
+        tt += dur;
+      }
+    }
+    cheer(t + 0.2, (tt - t) + 0.6, 0.05);
+  }
+
+  function roar(t) {
+    // aslan kükremesi: alçak, titreşimli hırıltı (yumuşatılmış)
+    const g = ctx.createGain();
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(500, t);
+    f.frequency.linearRampToValueAtTime(260, t + 1.6);
+    f.connect(g).connect(sfxVol);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.06, t + 0.25);
+    g.gain.linearRampToValueAtTime(0.04, t + 1.0);
+    g.gain.linearRampToValueAtTime(0.0001, t + 1.7);
+    const trem = ctx.createGain();
+    trem.connect(f);
+    const lfo = ctx.createOscillator();
+    const lg = ctx.createGain();
+    lfo.frequency.value = 24;
+    lg.gain.value = 0.5;
+    lfo.connect(lg).connect(trem.gain);
+    lfo.start(t);
+    lfo.stop(t + 1.8);
+    noise(t, 1.8, trem);
+    const o = osc('sawtooth', 95, t, t + 1.8, trem);
+    o.frequency.linearRampToValueAtTime(70, t + 1.6);
+    cheer(t + 0.8, 2.4, 0.07);
+  }
+
+  function chirps(t) {
+    // kanarya cıvıltısı: kısa, yumuşak yükselen tınlar
+    for (let i = 0; i < 9; i++) {
+      const tt = t + i * 0.13 + Math.random() * 0.05;
+      const g = ctx.createGain();
+      g.connect(sfxVol);
+      env(g, tt, 0.035, 0.005, 0.09);
+      const base = 2200 + Math.random() * 500;
+      const o = osc('sine', base, tt, tt + 0.12, g);
+      o.frequency.exponentialRampToValueAtTime(base * 1.35, tt + 0.08);
+    }
+    cheer(t + 0.4, 2.2, 0.06);
+  }
+
+  function wings(t) {
+    swoosh(t, 0.07);
+    swoosh(t + 0.45, 0.06);
+    boom(t + 0.9, 0.1);
+    cheer(t + 0.6, 2.4, 0.07);
+  }
+
+  function chomp(t) {
+    for (const d of [0, 0.35, 0.7]) {
+      boom(t + d, 0.12);
+      const g = ctx.createGain();
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = 1200;
+      f.connect(g).connect(sfxVol);
+      env(g, t + d, 0.06, 0.003, 0.08);
+      noise(t + d, 0.1, f);
+    }
+    cheer(t + 0.8, 2.2, 0.07);
+  }
+
+  function chant(t) {
+    // tezahürat ritmi: "Yi-ği-do!" gibi üç vuruş, iki kez
+    for (const rep of [0, 1.2]) {
+      [0, 0.28, 0.56].forEach((d, i) => {
+        const tt = t + rep + d;
+        const g = ctx.createGain();
+        const f = ctx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.frequency.value = i === 2 ? 700 : 900;
+        f.Q.value = 0.9;
+        f.connect(g).connect(sfxVol);
+        env(g, tt, i === 2 ? 0.13 : 0.09, 0.02, i === 2 ? 0.45 : 0.2);
+        noise(tt, 0.55, f);
+        boom(tt, i === 2 ? 0.12 : 0.07);
+      });
+    }
+    cheer(t + 2.0, 1.8, 0.07);
+  }
+
+  function sparkle(t) {
+    const notes = [84, 88, 91, 96, 91, 93, 96, 100];
+    notes.forEach((m, i) => chime([m], t + i * 0.11, 0, 0.04));
+    cheer(t + 0.3, 2.4, 0.06);
+  }
+
+  function thunder(t) {
+    const g = ctx.createGain();
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 300;
+    f.connect(g).connect(sfxVol);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.18, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+    noise(t, 2.3, f);
+    swoosh(t, 0.04);
+    cheer(t + 0.5, 2.2, 0.07);
+  }
+
+  function fireworks(t) {
+    [0, 0.5, 0.9, 1.3].forEach((d) => {
+      const g = ctx.createGain();
+      const f = ctx.createBiquadFilter();
+      f.type = 'highpass';
+      f.frequency.value = 700;
+      f.connect(g).connect(sfxVol);
+      env(g, t + d, 0.07, 0.003, 0.35);
+      noise(t + d, 0.4, f);
+      boom(t + d, 0.06);
+    });
+    horn([67, 72, 76, 79], t + 0.1, 0.13, 0.5, 0.035);
+    cheer(t + 0.3, 2.4, 0.07);
+  }
+
+  const CELEBRATION_SOUNDS = { horon: horonTune, roar, chirp: chirps, wings, chomp, chant, sparkle, thunder, fireworks };
+
   const last = { gift: 0, rank: 0, leader: 0 };
   const SMALL = [[84, 88], [86, 91], [88, 93], [91, 96], [84, 91]];
   const ready = () => ctx && ctx.state === 'running' && cfg.sfx;
@@ -403,6 +561,14 @@
       horn([67, 72, 76, 79], t, 0.13, 0.55, 0.045);
       cheer(t + 0.2, 2, 0.06);
       duckMusic(0.55, 1.8);
+    },
+    // Takım liderliği alınca o takıma özel kutlama sesi
+    celebrate(kind) {
+      if (!ready()) return;
+      const fn = CELEBRATION_SOUNDS[kind] || fireworks;
+      last.leader = performance.now();
+      fn(ctx.currentTime + 0.03);
+      duckMusic(0.4, 4);
     },
     champion() {
       if (!ready()) return;

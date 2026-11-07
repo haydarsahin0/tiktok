@@ -1,28 +1,111 @@
-/* Taraftar Ligi — yayın ekranı (1080x1920 dikey) */
+/* Taraftar Ligi — yayın ekranı (genişlik 1080, yükseklik ekrana göre: en az 1920)
+ *
+ * GÜVENLİ BÖLGE: TikTok canlı yayınında ekranın üstünü (yayıncı adı, izleyici sayısı, kapat)
+ * ve altını (yorumlar, yorum kutusu, hediye butonları) uygulama kapatır. Bu yüzden önemli her şey
+ * ortadaki "çekirdek" alanda (1080 x 1260) çizilir; üst ve alt kenarlarda sadece süs vardır.
+ * Kontrol için adrese ?guides=1 ekle: kapanan bölgeler kırmızı gösterilir.
+ */
 (() => {
   const W = 1080;
-  const H = 1920;
+  let H = 1920;
+  const CORE_H = 1260; // önemli içeriğin yüksekliği
+  const SAFE_TOP = 0.125; // ekranın üst %12,5'i kapanabilir
+  const SAFE_BOTTOM = 0.215; // ekranın alt %21,5'i kapanabilir
+  let CORE_Y = 240; // çekirdeğin ekrandaki başlangıcı (resize ile hesaplanır)
+
   const params = new URLSearchParams(location.search);
   const TRANSPARENT = params.get('transparent') === '1';
+  const GUIDES = params.get('guides') === '1';
   const TOP_N = 8;
+  const MAX_FANS = 56;
   const FONT = '"Baloo 2", "Segoe UI", Arial, sans-serif';
 
   if (TRANSPARENT) document.body.classList.add('transparent');
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
 
+  // ---------- ekran boyutu ----------
+  // Uzun telefonlarda (19.5:9 vb.) siyah şerit kalmasın diye tuval ekranın boyuna uzar.
+  function resize() {
+    const vw = innerWidth;
+    const vh = innerHeight;
+    const nextH = Math.round(Math.min(2600, Math.max(1920, (W * vh) / vw)));
+    if (nextH !== H || canvas.height !== nextH) {
+      H = nextH;
+      canvas.width = W;
+      canvas.height = H;
+    }
+    const cssW = Math.min(vw, (vh * W) / H);
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${(cssW * H) / W}px`;
+    const bandTop = H * SAFE_TOP;
+    const band = H * (1 - SAFE_TOP - SAFE_BOTTOM);
+    CORE_Y = Math.round(bandTop + Math.max(0, (band - CORE_H) / 2));
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  // ---------- çekirdek düzeni (çekirdek içi koordinatlar) ----------
+  const L = {
+    header: { y: 0, h: 100 },
+    raceTop: 110,
+    base: 556, // sütunların zemini
+    topLimit: 300, // en uzun sütunun tepesi
+    stadium: { cx: 540, cy: 812 },
+    toastY: 1036,
+    info: { y: 1060, h: 96 },
+    kings: { y: 1166, h: 94 },
+  };
+  const RING = { cx: 540, cy: L.stadium.cy, rx: 466, ry: 158 };
+  const PITCH = { w: 540, h: 172 };
+
+  // ---------- takıma özel kutlamalar ----------
+  // kind: horon | roar | fly | crawl | shout | rain | lightning | fireworks
+  const CELEB = {
+    ts: { kind: 'horon', title: 'HORON ZAMANI!', sound: 'horon' },
+    gs: { kind: 'roar', emoji: '🦁', title: 'CİMBOM BOM BOM!', sound: 'roar' },
+    fb: { kind: 'fly', emoji: '🐤', count: 7, title: 'SARI KANARYALAR!', sound: 'chirp' },
+    bjk: { kind: 'fly', emoji: '🦅', count: 1, title: 'KARA KARTAL KANATLANDI!', sound: 'wings' },
+    konya: { kind: 'fly', emoji: '🦅', count: 1, title: 'ANADOLU KARTALI!', sound: 'wings' },
+    bursa: { kind: 'crawl', emoji: '🐊', title: 'TİMSAH UYANDI!', sound: 'chomp' },
+    antalya: { kind: 'crawl', emoji: '🦂', title: 'AKREPLER GELİYOR!', sound: 'chomp' },
+    denizli: { kind: 'crawl', emoji: '🐓', title: 'HOROZ ÖTTÜ!', sound: 'chant' },
+    sivas: { kind: 'shout', shout: 'YİĞİDO!', title: 'YİĞİDOLAR ZİRVEDE!', sound: 'chant' },
+    goztepe: { kind: 'shout', shout: 'GÖZ GÖZ!', title: 'GÖZTEPE COŞTU!', sound: 'chant' },
+    ksk: { kind: 'shout', shout: 'KAF KAF!', title: 'KAFKAFLAR ZİRVEDE!', sound: 'chant' },
+    eskisehir: { kind: 'shout', shout: 'ES ES!', title: 'ES ES ZİRVEDE!', sound: 'chant' },
+    amed: { kind: 'shout', shout: 'AMED!', title: 'AMED ZİRVEDE!', sound: 'chant' },
+    altay: { kind: 'shout', shout: 'ALTAY!', title: 'İZMİR\'İN ALTAY\'I!', sound: 'chant' },
+    erzurum: { kind: 'rain', emoji: '❄️', title: 'DADAŞLAR GELDİ!', sound: 'sparkle' },
+    rize: { kind: 'rain', emoji: '☕', title: 'ÇAY DEMLENDİ!', sound: 'sparkle' },
+    giresun: { kind: 'rain', emoji: '🌰', title: 'ÇOTANAK GÜCÜ!', sound: 'sparkle' },
+    ordu: { kind: 'rain', emoji: '🌰', title: 'FINDIK GİBİ ORDU!', sound: 'sparkle' },
+    malatya: { kind: 'rain', emoji: '🍑', title: 'KAYISI GÜCÜ!', sound: 'sparkle' },
+    urfa: { kind: 'rain', emoji: '🌶️', title: 'İSOT GİBİ URFA!', sound: 'sparkle' },
+    gfk: { kind: 'rain', emoji: '🥜', title: 'FISTIK GİBİ ANTEP!', sound: 'sparkle' },
+    kayseri: { kind: 'rain', emoji: '⭐', title: 'KAYSERİ YILDIZLARI!', sound: 'sparkle' },
+    samsun: { kind: 'lightning', title: 'KIRMIZI ŞİMŞEK!', sound: 'thunder' },
+  };
+  const DEFAULT_CELEB = { kind: 'fireworks', title: 'ZİRVE BİZİM!', sound: 'fireworks' };
+  const CELEB_DUR = 4800;
+  const CELEB_COOLDOWN = 25000; // kutlamalar en fazla 25 sn'de bir (daha sık lider değişirse kısa yazı)
+
   // ---------- durum ----------
   let TEAMS = {};
   let teamOrder = [];
   let state = null;
   let timeOffset = 0;
-  const columns = new Map(); // teamId -> {x, h, pts}
-  const fans = new Map(); // uid -> {x, y, bubble, bubbleUntil, bounce}
-  const banners = []; // büyük hediye kartları
-  const toasts = []; // küçük bildirimler
+  const columns = new Map();
+  const fans = new Map();
+  const banners = [];
+  const toasts = [];
   const particles = [];
-  let flash = null; // lider değişti yazısı
-  let ball = { x: 540, y: 1150, t: 1, from: null, to: null };
+  const emojiParts = [];
+  let flash = null;
+  let celeb = null;
+  let lastCelebAt = -1e9;
+  let shakeUntil = 0;
+  let ball = { x: RING.cx, y: RING.cy, t: 1, from: null, to: null };
   let goalText = null;
   let tickerX = 0;
   let lastOrder = null;
@@ -31,9 +114,11 @@
   const serverNow = () => Date.now() + timeOffset;
   const fmt = (n) => Math.round(n).toLocaleString('tr-TR');
   const team = (id) => TEAMS[id] || { id, name: id, short: id, code: '?', colors: ['#666', '#ccc'] };
+  const upper = (s) => String(s).toLocaleUpperCase('tr-TR');
   const lerp = (a, b, t) => a + (b - a) * t;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const ease = (t) => 1 - Math.pow(1 - t, 3);
+  const sfx = (name, ...args) => { try { window.TaraftarAudio?.[name](...args); } catch { /* sessiz */ } };
 
   function image(url) {
     if (!url) return null;
@@ -49,20 +134,18 @@
     return img.complete && !img.failed && img.naturalWidth ? img : null;
   }
 
-  // ---------- veri girişi ----------
-  // Veri iki yerden gelebilir: Node sunucusu (WebSocket) ya da tarayıcının içinde
-  // çalışan oyun (GitHub Pages / tablet). İkisi de bu fonksiyonları çağırır (bkz. main.js).
+  // ---------- veri girişi (main.js / local.js çağırır) ----------
   window.Overlay = {
     setTeams(teams) {
       TEAMS = Object.fromEntries(teams.map((t) => [t.id, t]));
       teamOrder = teams.map((t) => t.id);
     },
     setState(s) {
-      // İlk 8'de bir takım yükseldiyse yumuşak "yükselme" sesi
       const order = s.teams.slice(0, TOP_N).filter((t) => t.points > 0).map((t) => t.id);
-      if (lastOrder && order.some((id, i) => { const before = lastOrder.indexOf(id); return before === -1 ? lastOrder.length >= i + 1 && lastOrder.length > 0 : before > i; })) {
-        sfx('rankUp');
-      }
+      if (lastOrder && order.some((id, i) => {
+        const before = lastOrder.indexOf(id);
+        return before === -1 ? lastOrder.length > i : before > i;
+      })) sfx('rankUp');
       lastOrder = order;
       state = s;
       timeOffset = s.now - Date.now();
@@ -77,15 +160,21 @@
       case 'gift': {
         const big = e.points >= 5000;
         banners.push({ kind: 'gift', e, dur: big ? 4200 : e.points >= 1000 ? 3000 : 2000 });
-        if (banners.length > 6) banners.splice(1, banners.length - 6);
+        trimBanners();
         bounceTeam(e.team);
         shootBall(e.team, e.points);
-        if (e.points >= 1000) confetti(540, 1150, team(e.team).colors, Math.min(160, 30 + e.points / 100));
+        if (e.points >= 1000) confetti(RING.cx, RING.cy, team(e.team).colors, Math.min(160, 30 + e.points / 100));
         sfx('gift', e.points);
         break;
       }
       case 'needTeam':
         banners.push({ kind: 'need', e, dur: 3500 });
+        trimBanners();
+        break;
+      case 'captain':
+        banners.push({ kind: 'captain', e, dur: 3200 });
+        trimBanners();
+        sfx('gift', 1500);
         break;
       case 'pendingApplied':
         toast(`⚽ ${e.user.name} • bekleyen ${fmt(e.points)} puan ${team(e.team).name}'a eklendi!`, e.team);
@@ -109,10 +198,10 @@
         break;
       }
       case 'leader':
-        flash = { team: e.team, start: performance.now(), dur: 2800 };
-        sfx('leader');
+        startCelebration(e.team, e.force);
         break;
       case 'champion':
+        celeb = null;
         sfx('champion');
         break;
       case 'roundStart':
@@ -121,6 +210,10 @@
         break;
       default:
     }
+  }
+
+  function trimBanners() {
+    if (banners.length > 6) banners.splice(1, banners.length - 6);
   }
 
   function toast(text, teamId) {
@@ -135,7 +228,8 @@
 
   function shootBall(teamId, points) {
     const left = Math.random() < 0.5;
-    ball = { x: 540, y: 1150, t: 0, from: { x: 540, y: 1150 }, to: { x: left ? 232 : 848, y: 1150 + (Math.random() * 60 - 30) }, team: teamId };
+    const gx = RING.cx + (left ? -1 : 1) * (PITCH.w / 2 - 10);
+    ball = { x: RING.cx, y: RING.cy, t: 0, from: { x: RING.cx, y: RING.cy }, to: { x: gx, y: RING.cy + (Math.random() * 40 - 20) }, team: teamId };
     if (points >= 500) goalText = { team: teamId, start: performance.now() + 450, big: points >= 5000 };
   }
 
@@ -152,15 +246,28 @@
     if (particles.length > 900) particles.splice(0, particles.length - 900);
   }
 
-  // ---------- ses (audio.js) ----------
-  const sfx = (name, ...args) => { try { window.TaraftarAudio?.[name](...args); } catch { /* sessiz */ } };
+  function startCelebration(teamId, force = false) {
+    const now = performance.now();
+    if (!force && now - lastCelebAt < CELEB_COOLDOWN) {
+      // Çok sık lider değişiyorsa: sadece kısa "zirve değişti" yazısı
+      flash = { team: teamId, start: now, dur: 2600 };
+      sfx('leader');
+      return;
+    }
+    lastCelebAt = now;
+    const cfg = CELEB[teamId] || DEFAULT_CELEB;
+    celeb = { team: teamId, cfg, start: now, dur: CELEB_DUR, pulses: 0, bolts: [], fired: 0 };
+    flash = null;
+    if (cfg.kind === 'roar') shakeUntil = now + 1100;
+    bounceTeam(teamId);
+    confetti(RING.cx, RING.cy - 60, team(teamId).colors.concat(['#ffd400']), 80);
+    sfx('celebrate', cfg.sound);
+  }
 
   // ---------- taraftar halkası ----------
-  const RING = { cx: 540, cy: 1150, rx: 468, ry: 222 };
   function syncFans() {
-    const list = state.fans;
     const rank = Object.fromEntries(state.teams.map((t, i) => [t.id, i]));
-    // Aynı takımın taraftarları yan yana dursun (tribün grupları)
+    const list = state.fans.slice(0, MAX_FANS);
     const sorted = [...list].sort((a, b) => (rank[a.team] ?? 99) - (rank[b.team] ?? 99) || b.points - a.points);
     const ids = new Set();
     const n = sorted.length;
@@ -171,7 +278,7 @@
       const ty = RING.cy + Math.sin(ang) * RING.ry;
       let cur = fans.get(f.id);
       if (!cur) {
-        cur = { x: RING.cx + Math.cos(ang) * RING.rx * 1.25, y: RING.cy + Math.sin(ang) * RING.ry * 1.25, bounce: 0, bubble: '', bubbleUntil: 0 };
+        cur = { x: RING.cx + Math.cos(ang) * RING.rx * 1.2, y: RING.cy + Math.sin(ang) * RING.ry * 1.2, bounce: 0, bubble: '', bubbleUntil: 0 };
         fans.set(f.id, cur);
       }
       Object.assign(cur, { tx, ty, team: f.team, name: f.name, avatar: f.avatar, points: f.points });
@@ -231,7 +338,6 @@
     ctx.shadowBlur = 0;
     ctx.clip();
     stripes(cx - w * 0.3, top, w * 0.6, w, t.colors, 3);
-    // kollar ana renkte
     ctx.fillStyle = t.colors[0];
     ctx.fillRect(cx - w * 0.6, top, w * 0.3, w * 0.45);
     ctx.fillRect(cx + w * 0.3, top, w * 0.3, w * 0.45);
@@ -272,10 +378,9 @@
     } else {
       ctx.fillStyle = t.colors[0];
       ctx.fill();
-      text((user.name || '?').trim().charAt(0).toLocaleUpperCase('tr-TR'), x, y + 2, { size: r * 1.1, color: t.colors[1] === t.colors[0] ? '#fff' : t.colors[1], stroke: 4 });
+      text(upper((user.name || '?').trim().charAt(0)), x, y + 2, { size: r * 1.1, color: t.colors[1] === t.colors[0] ? '#fff' : t.colors[1], stroke: 4 });
     }
     ctx.restore();
-    // iki renkli halka
     ctx.lineWidth = Math.max(3, r * 0.22);
     ctx.beginPath();
     ctx.arc(x, y, r + ctx.lineWidth / 2, -Math.PI / 2, Math.PI / 2);
@@ -287,100 +392,109 @@
     ctx.stroke();
   }
 
-  // ---------- sahneler ----------
+  // Kaptan pazıbandı: sarı daire içinde "C"
+  function armband(x, y, r) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffd400';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#111';
+    ctx.stroke();
+    text('C', x, y + 1, { size: r * 1.4, color: '#111' });
+  }
+
+  function shadeColor(hex, amt) {
+    const n = parseInt(String(hex).slice(1), 16);
+    const f = (c) => clamp(Math.round(c + (amt < 0 ? c * amt : (255 - c) * amt)), 0, 255);
+    return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+  }
+
+  // ---------- arka plan (tüm ekran) ----------
   function drawBackground(now) {
     if (TRANSPARENT) { ctx.clearRect(0, 0, W, H); return; }
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#071226');
-    g.addColorStop(0.42, '#0c2a3f');
-    g.addColorStop(0.47, '#0e3b2a');
-    g.addColorStop(1, '#061a12');
+    const mid = (CORE_Y + L.base) / H;
+    g.addColorStop(0, '#050d1d');
+    g.addColorStop(clamp(mid - 0.02, 0, 1), '#0c2a3f');
+    g.addColorStop(clamp(mid + 0.03, 0, 1), '#0e3b2a');
+    g.addColorStop(1, '#04140d');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
-    // projektör ışıkları
+    const ly = CORE_Y + 60;
     for (const side of [-1, 1]) {
-      const x = side < 0 ? 60 : W - 60;
-      const lg = ctx.createRadialGradient(x, 180, 10, x, 180, 900);
-      lg.addColorStop(0, 'rgba(255,255,230,.22)');
+      const x = side < 0 ? 40 : W - 40;
+      const lg = ctx.createRadialGradient(x, ly, 10, x, ly, 800);
+      lg.addColorStop(0, 'rgba(255,255,230,.18)');
       lg.addColorStop(1, 'rgba(255,255,230,0)');
       ctx.fillStyle = lg;
       ctx.beginPath();
-      ctx.moveTo(x, 170);
-      ctx.lineTo(W / 2 + side * -60, 880);
-      ctx.lineTo(W / 2 + side * 460, 880);
+      ctx.moveTo(x, ly);
+      ctx.lineTo(W / 2 + side * -80, CORE_Y + L.base);
+      ctx.lineTo(W / 2 + side * 440, CORE_Y + L.base);
       ctx.closePath();
       ctx.fill();
-      for (let i = 0; i < 3; i++) {
-        ctx.fillStyle = `rgba(255,255,220,${0.7 + 0.3 * Math.sin(now / 500 + i)})`;
-        ctx.beginPath();
-        ctx.arc(x + (i - 1) * 22 * side, 170, 8, 0, Math.PI * 2);
-        ctx.fill();
-      }
     }
+    // Üst kenar süsü (kapanabilir bölge, önemli bilgi yok)
+    if (CORE_Y > 120) text('⚽  TARAFTAR LİGİ  ⚽', W / 2, CORE_Y * 0.55, { size: 40, color: 'rgba(255,255,255,.12)' });
   }
 
-  function drawHeader(now) {
+  // ---------- çekirdek: başlık ----------
+  function drawHeader() {
+    const { y, h } = L.header;
     const g = ctx.createLinearGradient(0, 0, W, 0);
-    g.addColorStop(0, 'rgba(200,16,46,.92)');
-    g.addColorStop(1, 'rgba(120,8,28,.92)');
-    rr(20, 20, W - 40, 128, 28);
+    g.addColorStop(0, 'rgba(200,16,46,.95)');
+    g.addColorStop(1, 'rgba(120,8,28,.95)');
+    rr(20, y, W - 40, h, 26);
     ctx.fillStyle = g;
     ctx.fill();
     ctx.lineWidth = 4;
     ctx.strokeStyle = 'rgba(255,255,255,.25)';
     ctx.stroke();
-    // ay-yıldız esintili küçük süs
+    const cy = y + h / 2;
     ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(86, 84, 34, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(72, cy, 30, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#b10e28';
-    ctx.beginPath(); ctx.arc(96, 84, 27, 0, Math.PI * 2); ctx.fill();
-    text('⚽', 86, 86, { size: 34 });
-    text('TARAFTAR LİGİ', 140, 66, { size: 58, align: 'left', stroke: 8 });
+    ctx.beginPath(); ctx.arc(81, cy, 24, 0, Math.PI * 2); ctx.fill();
+    text('⚽', 74, cy + 2, { size: 30 });
+    text('TARAFTAR LİGİ', 118, cy - 16, { size: 48, align: 'left', stroke: 8 });
     const round = state?.round?.number ?? 1;
     const fanTotal = state ? state.teams.reduce((s, t) => s + t.fans, 0) : 0;
-    text(`TUR ${round}  •  ${fmt(fanTotal)} taraftar sahada`, 142, 118, { size: 28, weight: 600, align: 'left', color: '#ffe3e8' });
+    text(`TUR ${round}  •  ${fmt(fanTotal)} taraftar sahada`, 120, cy + 26, { size: 24, weight: 600, align: 'left', color: '#ffe3e8' });
 
     // tur sayacı
-    const cx = W - 104;
-    const cy = 84;
-    ctx.beginPath(); ctx.arc(cx, cy, 56, 0, Math.PI * 2);
+    const cx = W - 76;
+    ctx.beginPath(); ctx.arc(cx, cy, 44, 0, Math.PI * 2);
     ctx.fillStyle = '#0b0f1a'; ctx.fill();
     const r = state?.round;
     let label = '∞';
     let frac = 1;
     if (r && r.endsAt) {
       const left = Math.max(0, r.endsAt - serverNow());
-      const total = r.endsAt - r.startedAt;
-      frac = clamp(left / total, 0, 1);
+      frac = clamp(left / (r.endsAt - r.startedAt), 0, 1);
       const m = Math.floor(left / 60000);
       const s = Math.floor((left % 60000) / 1000);
-      label = m >= 60
-        ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-        : `${m}:${String(s).padStart(2, '0')}`;
+      label = m >= 60 ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
     }
-    ctx.lineWidth = 10;
-    ctx.beginPath(); ctx.arc(cx, cy, 50, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, 50, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+    ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.arc(cx, cy, 39, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, 39, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
     ctx.strokeStyle = frac < 0.1 ? '#ff4d4d' : '#ffd400';
     ctx.lineCap = 'round'; ctx.stroke(); ctx.lineCap = 'butt';
-    text(label, cx, cy - 4, { size: 30, max: 84 });
-    text('TUR', cx, cy + 26, { size: 16, weight: 600, color: '#aab' });
+    text(label, cx, cy - 4, { size: 24, max: 66 });
+    text('TUR', cx, cy + 20, { size: 13, weight: 600, color: '#aab' });
   }
 
+  // ---------- çekirdek: puan yarışı (sütunlar + kaptanlar) ----------
   function drawRace(now, dt) {
-    const base = 828;
-    const topLimit = 380;
-    // alan
-    rr(20, 168, W - 40, 708, 30);
+    const { base, topLimit, raceTop } = L;
+    rr(20, raceTop, W - 40, base - raceTop + 52, 26);
     ctx.fillStyle = 'rgba(0,0,0,.28)';
     ctx.fill();
-    text('CANLI PUAN DURUMU', 44, 196, { size: 26, align: 'left', color: '#ffd400', stroke: 5 });
-    text('🎁 hediye at, takımın yükselsin!', W - 44, 196, { size: 24, weight: 600, align: 'right', color: '#dfe' });
 
-    // çim zemin
-    const grass = ctx.createLinearGradient(0, base, 0, base + 46);
+    const grass = ctx.createLinearGradient(0, base, 0, base + 40);
     grass.addColorStop(0, '#2fae4f'); grass.addColorStop(1, '#1a7a35');
-    rr(36, base, W - 72, 40, 12);
+    rr(36, base, W - 72, 36, 12);
     ctx.fillStyle = grass; ctx.fill();
 
     if (!state) return;
@@ -388,17 +502,16 @@
     const leaderPts = Math.max(1, top[0]?.points || 0);
     const colW = 104;
     const gap = (W - 72 - TOP_N * colW) / (TOP_N - 1);
-    const k = 1 - Math.pow(0.002, dt / 1000); // kare hızından bağımsız yumuşak geçiş
+    const k = 1 - Math.pow(0.002, dt / 1000);
 
     const visible = new Set(top.map((t) => t.id));
     for (const id of columns.keys()) if (!visible.has(id)) columns.delete(id);
 
-    // önce arkadakiler, sonra lider (lider en üstte çizilsin)
     const order = top.map((t, i) => ({ t, i })).reverse();
     for (const { t, i } of order) {
       const tm = team(t.id);
       const targetX = 36 + i * (colW + gap) + colW / 2;
-      const minH = t.points > 0 ? 72 : 52;
+      const minH = t.points > 0 ? 64 : 48;
       const targetH = minH + (t.points / leaderPts) * (base - topLimit - minH);
       let c = columns.get(t.id);
       if (!c) { c = { x: targetX, h: 0, pts: 0, pulse: 0 }; columns.set(t.id, c); }
@@ -411,7 +524,6 @@
 
       const x = c.x - colW / 2;
       const yTop = base - c.h;
-      // sütun
       ctx.save();
       rr(x, yTop, colW, c.h + 6, [18, 18, 0, 0]);
       ctx.clip();
@@ -427,63 +539,81 @@
       rr(x, yTop, colW, c.h + 6, [18, 18, 0, 0]);
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.stroke();
 
-      // forma + puan
-      const jw = 96 + pulse * 14;
-      const jy = yTop - jw * 0.98 + 10 + Math.sin(now / 300 + i) * 2;
+      // forma + puan + taç
+      const jw = 84 + pulse * 12;
+      const jy = yTop - jw * 0.98 + 8 + Math.sin(now / 300 + i) * 2;
       jersey(tm, c.x, jy, jw);
-      text(fmt(c.pts), c.x, jy - 22, { size: 30, stroke: 7, max: colW + gap - 4 });
-      if (i === 0 && t.points > 0) text('👑', c.x, jy - 62 + Math.sin(now / 250) * 4, { size: 46 });
+      text(fmt(c.pts), c.x, jy - 18, { size: 28, stroke: 7, max: colW + gap - 4 });
+      if (i === 0 && t.points > 0) text('👑', c.x, jy - 52 + Math.sin(now / 250) * 3, { size: 40 });
 
-      // sıra numarası
-      ctx.beginPath(); ctx.arc(c.x, base - 26, 19, 0, Math.PI * 2);
+      // kaptan: sütunun içinde, formanın hemen altında
+      const cap = t.captain;
+      if (cap && c.h >= 108) {
+        const big = c.h >= 160;
+        const ar = big ? 23 : 18;
+        const ay = yTop + ar + 12;
+        avatar(cap, c.x, ay, ar, tm);
+        armband(c.x + ar * 0.8, ay - ar * 0.75, big ? 10 : 8);
+        if (big) {
+          const name = cap.name.length > 9 ? `${cap.name.slice(0, 8)}…` : cap.name;
+          ctx.font = `700 15px ${FONT}`;
+          const w = Math.min(colW - 4, ctx.measureText(name).width + 12);
+          rr(c.x - w / 2, ay + ar + 6, w, 20, 9);
+          ctx.fillStyle = 'rgba(0,0,0,.75)'; ctx.fill();
+          text(name, c.x, ay + ar + 16, { size: 15, weight: 700, max: colW - 10 });
+        }
+      }
+
+      ctx.beginPath(); ctx.arc(c.x, base - 22, 17, 0, Math.PI * 2);
       ctx.fillStyle = i === 0 ? '#ffd400' : 'rgba(0,0,0,.65)'; ctx.fill();
-      text(String(i + 1), c.x, base - 24, { size: 26, color: i === 0 ? '#111' : '#fff' });
-      // isim
-      text(tm.short, c.x, base + 21, { size: 22, stroke: 5, max: colW + gap - 6 });
-      if (t.fans && c.h > 130) text(`👥 ${t.fans}`, c.x, base - 62, { size: 20, weight: 600, stroke: 5 });
+      text(String(i + 1), c.x, base - 20, { size: 23, color: i === 0 ? '#111' : '#fff' });
+      text(tm.short, c.x, base + 19, { size: 21, stroke: 5, max: colW + gap - 6 });
+      if (t.fans && c.h > 220) text(`👥 ${t.fans}`, c.x, base - 56, { size: 19, weight: 600, stroke: 5 });
     }
 
-    // lider değişti
+    // Kısa "zirve değişti" yazısı (kutlama yokken)
     if (flash) {
       const p = (now - flash.start) / flash.dur;
       if (p >= 1) flash = null;
-      else {
-        const tm = team(flash.team);
-        const a = p < 0.15 ? p / 0.15 : p > 0.8 ? (1 - p) / 0.2 : 1;
-        ctx.save();
-        ctx.globalAlpha = a;
-        ctx.translate(W / 2, 470);
-        ctx.rotate(-0.06);
-        ctx.scale(0.8 + 0.2 * ease(Math.min(1, p * 4)), 0.8 + 0.2 * ease(Math.min(1, p * 4)));
-        rr(-460, -86, 920, 172, 26);
-        ctx.fillStyle = tm.colors[0]; ctx.fill();
-        ctx.lineWidth = 8; ctx.strokeStyle = tm.colors[1]; ctx.stroke();
-        text('ZİRVE DEĞİŞTİ!', 0, -34, { size: 54, stroke: 10, color: '#ffd400' });
-        text(`${tm.name.toLocaleUpperCase('tr-TR')} LİDER`, 0, 34, { size: 58, stroke: 10, max: 860 });
-        ctx.restore();
-      }
+      else titleBand(team(flash.team), 'ZİRVE DEĞİŞTİ!', `${upper(team(flash.team).name)} LİDER`, p);
     }
   }
 
+  // Sütunların üstünde eğik, takım renginde başlık bandı
+  function titleBand(tm, title, sub, p) {
+    const a = p < 0.12 ? p / 0.12 : p > 0.82 ? (1 - p) / 0.18 : 1;
+    const s = 0.8 + 0.2 * ease(Math.min(1, p * 4));
+    ctx.save();
+    ctx.globalAlpha = clamp(a, 0, 1);
+    ctx.translate(W / 2, 330);
+    ctx.rotate(-0.05);
+    ctx.scale(s, s);
+    rr(-470, -82, 940, 164, 26);
+    ctx.fillStyle = tm.colors[0]; ctx.fill();
+    ctx.lineWidth = 8; ctx.strokeStyle = tm.colors[1]; ctx.stroke();
+    text(title, 0, -30, { size: 58, stroke: 10, color: '#ffd400', max: 880 });
+    text(sub, 0, 36, { size: 44, stroke: 9, max: 860 });
+    ctx.restore();
+  }
+
+  // ---------- çekirdek: stadyum ----------
   function drawStadium(now, dt) {
     const { cx, cy } = RING;
-    // tribün
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(cx, cy, 528, 268, 0, 0, Math.PI * 2);
-    const sg = ctx.createRadialGradient(cx, cy, 200, cx, cy, 540);
+    ctx.ellipse(cx, cy, 528, 198, 0, 0, Math.PI * 2);
+    const sg = ctx.createRadialGradient(cx, cy, 150, cx, cy, 540);
     sg.addColorStop(0, '#24313f'); sg.addColorStop(1, '#0f1720');
     ctx.fillStyle = sg; ctx.fill();
     ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.stroke();
     ctx.restore();
 
-    // saha
-    const pw = 620;
-    const ph = 250;
+    const pw = PITCH.w;
+    const ph = PITCH.h;
     const px = cx - pw / 2;
     const py = cy - ph / 2;
     ctx.save();
-    rr(px, py, pw, ph, 18);
+    rr(px, py, pw, ph, 16);
     ctx.clip();
     for (let i = 0; i < 10; i++) {
       ctx.fillStyle = i % 2 ? '#2e9e48' : '#36b153';
@@ -492,42 +622,70 @@
     ctx.restore();
     ctx.strokeStyle = 'rgba(255,255,255,.85)';
     ctx.lineWidth = 4;
-    rr(px + 10, py + 10, pw - 20, ph - 20, 6); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx, py + 10); ctx.lineTo(cx, py + ph - 10); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, 46, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeRect(px + 10, cy - 62, 70, 124);
-    ctx.strokeRect(px + pw - 80, cy - 62, 70, 124);
-    // kaleler
+    rr(px + 8, py + 8, pw - 16, ph - 16, 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, py + 8); ctx.lineTo(cx, py + ph - 8); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, 36, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeRect(px + 8, cy - 46, 56, 92);
+    ctx.strokeRect(px + pw - 64, cy - 46, 56, 92);
     ctx.fillStyle = 'rgba(255,255,255,.9)';
-    ctx.fillRect(px - 4, cy - 34, 14, 68);
-    ctx.fillRect(px + pw - 10, cy - 34, 14, 68);
+    ctx.fillRect(px - 4, cy - 26, 12, 52);
+    ctx.fillRect(px + pw - 8, cy - 26, 12, 52);
 
     // top
     if (ball.t < 1) {
       ball.t = Math.min(1, ball.t + dt / 650);
       const e = ease(ball.t);
       ball.x = lerp(ball.from.x, ball.to.x, e);
-      ball.y = lerp(ball.from.y, ball.to.y, e) - Math.sin(e * Math.PI) * 90;
-      if (ball.t >= 1) setTimeout(() => { ball = { x: 540, y: 1150, t: 1 }; }, 700);
+      ball.y = lerp(ball.from.y, ball.to.y, e) - Math.sin(e * Math.PI) * 70;
+      if (ball.t >= 1) setTimeout(() => { ball = { x: cx, y: cy, t: 1 }; }, 700);
     }
-    const bs = 18 + (ball.t < 1 ? Math.sin(ball.t * Math.PI) * 10 : 0);
+    const bs = 16 + (ball.t < 1 ? Math.sin(ball.t * Math.PI) * 9 : 0);
     ctx.fillStyle = 'rgba(0,0,0,.3)';
-    ctx.beginPath(); ctx.ellipse(ball.x, (ball.to?.y ?? cy) + 18, bs, bs * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(ball.x, (ball.to?.y ?? cy) + 16, bs, bs * 0.35, 0, 0, Math.PI * 2); ctx.fill();
     text('⚽', ball.x, ball.y, { size: bs * 2.1 });
 
-    // taraftarlar
+    // taraftarlar (horon kutlamasında o takımın taraftarları sahaya iner, el ele oynar)
     const k = 1 - Math.pow(0.01, dt / 1000);
     const list = [...fans.values()];
     const n = list.length;
-    const r = n > 50 ? 19 : n > 30 ? 23 : 27;
+    const r = n > 40 ? 19 : n > 24 ? 22 : 26;
+    const horon = celeb && celeb.cfg.kind === 'horon' ? celeb : null;
+    let dancers = [];
+    if (horon) {
+      dancers = list.filter((f) => f.team === horon.team).slice(0, 12);
+      const m = dancers.length;
+      const span = Math.min(470, Math.max(0, m - 1) * 52);
+      const sway = Math.sin(now / 260) * 14;
+      dancers.forEach((f, i) => {
+        const u = m > 1 ? i / (m - 1) : 0.5;
+        f.dx = cx - span / 2 + u * span + sway;
+        f.dy = cy + 18 + Math.pow(u - 0.5, 2) * 70 + Math.sin(now / 55 + i * 0.7) * 5; // omuz titretme
+      });
+    }
+    const dancing = new Set(dancers);
+    for (const f of list) {
+      const tx = dancing.has(f) ? f.dx : f.tx;
+      const ty = dancing.has(f) ? f.dy : f.ty;
+      f.x = lerp(f.x, tx, dancing.has(f) ? Math.min(1, k * 3) : k);
+      f.y = lerp(f.y, ty, dancing.has(f) ? Math.min(1, k * 3) : k);
+    }
+    // el ele tutuşma çizgisi
+    if (dancers.length > 1) {
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = team(horon.team).colors[1] === '#FFFFFF' ? '#fff' : team(horon.team).colors[1];
+      ctx.beginPath();
+      dancers.forEach((f, i) => (i ? ctx.lineTo(f.x, f.y + r * 0.9) : ctx.moveTo(f.x, f.y + r * 0.9)));
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
     list.sort((a, b) => a.y - b.y);
     for (const f of list) {
-      f.x = lerp(f.x, f.tx, k);
-      f.y = lerp(f.y, f.ty, k);
       const tm = team(f.team);
       const b = f.bounce && now > f.bounce ? Math.max(0, 1 - (now - f.bounce) / 900) : 0;
-      const hop = b ? Math.abs(Math.sin(b * Math.PI * 3)) * 26 : Math.sin(now / 400 + f.x) * 2;
+      const hop = b ? Math.abs(Math.sin(b * Math.PI * 3)) * 24 : Math.sin(now / 400 + f.x) * 2;
       avatar(f, f.x, f.y - hop, r, tm);
+      if (dancing.has(f)) continue; // horon sırasında isimler üst üste binmesin
       const name = f.name.length > 10 ? `${f.name.slice(0, 9)}…` : f.name;
       ctx.font = `700 15px ${FONT}`;
       const w = ctx.measureText(name).width + 14;
@@ -535,7 +693,6 @@
       ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fill();
       text(name, f.x, f.y + r + 15, { size: 15, weight: 700 });
     }
-    // konuşma balonları en üstte
     for (const f of list) {
       if (f.bubbleUntil > now && f.bubble) {
         const msg = f.bubble.length > 26 ? `${f.bubble.slice(0, 25)}…` : f.bubble;
@@ -551,12 +708,11 @@
     }
 
     if (!n) {
-      rr(cx - 290, cy - 40, 580, 80, 20);
+      rr(cx - 280, cy - 36, 560, 72, 20);
       ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
-      text('Takımını yaz, sahaya ilk sen çık! 👇', cx, cy, { size: 32 });
+      text('Takımını yaz, sahaya ilk sen çık! 👇', cx, cy, { size: 30 });
     }
 
-    // GOL yazısı
     if (goalText && now > goalText.start) {
       const p = (now - goalText.start) / 1400;
       if (p >= 1) goalText = null;
@@ -564,17 +720,153 @@
         const tm = team(goalText.team);
         ctx.save();
         ctx.globalAlpha = p > 0.75 ? (1 - p) / 0.25 : 1;
-        ctx.translate(cx, cy - 150);
-        const s = 0.6 + ease(Math.min(1, p * 3)) * (goalText.big ? 0.7 : 0.45);
+        ctx.translate(cx, cy - 120);
+        const s = 0.6 + ease(Math.min(1, p * 3)) * (goalText.big ? 0.65 : 0.4);
         ctx.scale(s, s);
-        text(goalText.big ? 'GOOOOL!!' : 'GOL!', 0, 0, { size: 120, stroke: 16, color: tm.colors[1] === '#FFFFFF' || tm.colors[1] === '#111111' ? '#ffd400' : tm.colors[1], strokeColor: tm.colors[0] });
+        const c2 = tm.colors[1];
+        text(goalText.big ? 'GOOOOL!!' : 'GOL!', 0, 0, { size: 120, stroke: 16, color: c2 === '#FFFFFF' || c2 === '#111111' ? '#ffd400' : c2, strokeColor: tm.colors[0] });
         ctx.restore();
       }
     }
   }
 
+  // ---------- takım kutlaması ----------
+  function drawCelebration(now) {
+    if (!celeb) return;
+    const t = now - celeb.start;
+    const p = t / celeb.dur;
+    if (p >= 1) { celeb = null; return; }
+    const { cfg } = celeb;
+    const tm = team(celeb.team);
+    const { cx, cy } = RING;
+    const fade = p > 0.85 ? (1 - p) / 0.15 : 1;
+
+    if (cfg.kind === 'horon') {
+      // uçuşan notalar
+      ctx.save();
+      ctx.globalAlpha = fade;
+      for (let j = 0; j < 7; j++) {
+        const yy = cy - 30 - ((t / 6 + j * 37) % 150);
+        text(j % 2 ? '♪' : '♫', cx - 240 + j * 80, yy, { size: 34, color: '#ffd400', stroke: 5 });
+      }
+      ctx.restore();
+    } else if (cfg.kind === 'roar') {
+      const s = 0.4 + ease(Math.min(1, p * 2.5)) * 1.9;
+      ctx.save();
+      ctx.globalAlpha = fade;
+      for (let j = 0; j < 3; j++) {
+        const rp = ((t / 900) + j / 3) % 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 60 + rp * 420, 0, Math.PI * 2);
+        ctx.lineWidth = 10 * (1 - rp);
+        ctx.strokeStyle = j % 2 ? tm.colors[1] : tm.colors[0];
+        ctx.globalAlpha = fade * (1 - rp);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = fade;
+      ctx.translate(cx, cy - 20);
+      ctx.scale(s, s);
+      text(cfg.emoji, 0, 0, { size: 90 });
+      ctx.restore();
+    } else if (cfg.kind === 'fly') {
+      const count = cfg.count || 1;
+      const size = count > 1 ? 70 : 150;
+      for (let j = 0; j < count; j++) {
+        const u = clamp(p * 1.25 - j * 0.06, 0, 1);
+        const x = lerp(W + 160, -160, u);
+        const y = (count > 1 ? 420 + (j % 3) * 70 : 520) + Math.sin(u * Math.PI * 3 + j) * 50 + (count > 1 ? 0 : -Math.sin(u * Math.PI) * 140);
+        text(cfg.emoji, x, y, { size });
+      }
+    } else if (cfg.kind === 'crawl') {
+      const u = clamp(p * 1.1, 0, 1);
+      const x = lerp(W + 140, -140, u);
+      const y = cy + 150;
+      const chomp = Math.abs(Math.sin(t / 120));
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.sin(t / 150) * 0.06);
+      ctx.scale(1, 0.9 + chomp * 0.2);
+      text(cfg.emoji, 0, 0, { size: 150 });
+      ctx.restore();
+    } else if (cfg.kind === 'shout') {
+      const beats = [0.04, 0.3, 0.56];
+      beats.forEach((b, j) => {
+        if (p >= b && celeb.pulses <= j) { celeb.pulses = j + 1; bounceTeam(celeb.team); }
+      });
+      const lastBeat = beats.filter((b) => p >= b).pop() ?? 0;
+      const bp = clamp((p - lastBeat) / 0.26, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = fade * (1 - bp * 0.5);
+      ctx.translate(cx, cy - 10);
+      const s = 0.7 + ease(bp) * 0.6;
+      ctx.scale(s, s);
+      text(cfg.shout, 0, 0, { size: 110, stroke: 16, color: '#fff', strokeColor: tm.colors[0] });
+      ctx.restore();
+    } else if (cfg.kind === 'rain') {
+      if (p < 0.65 && Math.random() < 0.5) {
+        emojiParts.push({ x: Math.random() * W, y: 120, vy: 3 + Math.random() * 4, rot: Math.random() * 6, vr: Math.random() * 0.1 - 0.05, ch: cfg.emoji, size: 34 + Math.random() * 26 });
+      }
+    } else if (cfg.kind === 'lightning') {
+      const strikes = [0.03, 0.22, 0.45];
+      strikes.forEach((b, j) => {
+        if (p >= b && celeb.fired <= j) {
+          celeb.fired = j + 1;
+          const x0 = 150 + Math.random() * (W - 300);
+          const pts = [[x0, 120]];
+          for (let y = 120; y < cy; y += 70) pts.push([pts[pts.length - 1][0] + (Math.random() * 120 - 60), y + 70]);
+          celeb.bolts.push({ pts, at: now });
+        }
+      });
+      for (const bolt of celeb.bolts) {
+        const age = now - bolt.at;
+        if (age > 350) continue;
+        const a = 1 - age / 350;
+        ctx.save();
+        ctx.globalAlpha = a * 0.35;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, -CORE_Y, W, H);
+        ctx.globalAlpha = a;
+        ctx.strokeStyle = '#fff6a8';
+        ctx.lineWidth = 10;
+        ctx.shadowColor = tm.colors[0];
+        ctx.shadowBlur = 30;
+        ctx.beginPath();
+        bolt.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else {
+      // havai fişek
+      const shots = [0.02, 0.18, 0.34, 0.5];
+      shots.forEach((b, j) => {
+        if (p >= b && celeb.fired <= j) {
+          celeb.fired = j + 1;
+          confetti(150 + Math.random() * (W - 300), 180 + Math.random() * 250, tm.colors.concat(['#ffd400', '#fff']), 70);
+        }
+      });
+    }
+
+    titleBand(tm, cfg.title, `${upper(tm.name)} ZİRVEDE`, p);
+  }
+
+  function drawEmojiParts(dt) {
+    const f = dt / 16.7;
+    for (let i = emojiParts.length - 1; i >= 0; i--) {
+      const e = emojiParts[i];
+      e.y += e.vy * f;
+      e.rot += e.vr * f;
+      if (e.y > CORE_H) { emojiParts.splice(i, 1); continue; }
+      ctx.save();
+      ctx.globalAlpha = clamp((CORE_H - e.y) / 200, 0, 1);
+      ctx.translate(e.x, e.y);
+      ctx.rotate(e.rot);
+      text(e.ch, 0, 0, { size: e.size });
+      ctx.restore();
+    }
+  }
+
+  // ---------- kartlar ve bildirimler ----------
   function drawBanners(now) {
-    // küçük bildirimler: stadyumla bilgi şeridi arasında tek satır, sırayla
     let tt = toasts[0];
     if (tt) {
       if (!tt.shown) tt.shown = now;
@@ -588,8 +880,8 @@
         ctx.font = `700 24px ${FONT}`;
         const msg = tt.text.length > 56 ? `${tt.text.slice(0, 55)}…` : tt.text;
         const w = Math.min(W - 60, ctx.measureText(msg).width + (tt.team ? 70 : 40));
-        const yy = 1446;
-        rr(W / 2 - w / 2, yy - 20, w, 40, 20);
+        const yy = L.toastY;
+        rr(W / 2 - w / 2, yy - 19, w, 38, 19);
         ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fill();
         if (tt.team) badge(team(tt.team), W / 2 - w / 2 + 22, yy, 15);
         text(msg, W / 2 + (tt.team ? 14 : 0), yy + 1, { size: 24, weight: 700, max: w - 56 });
@@ -597,7 +889,6 @@
       }
     }
 
-    // büyük hediye kartı (sırayla)
     const b = banners[0];
     if (!b) return;
     if (!b.start) b.start = now;
@@ -605,111 +896,117 @@
     if (p >= 1) { banners.shift(); return; }
     const a = p < 0.08 ? p / 0.08 : p > 0.88 ? (1 - p) / 0.12 : 1;
     const e = b.e;
-    const tm = b.kind === 'gift' ? team(e.team) : { colors: ['#f5b400', '#7a4a00'], name: '', code: '?' };
+    const tm = b.kind === 'need' ? { colors: ['#f5b400', '#7a4a00'], name: '', code: '?' } : team(e.team);
     ctx.save();
     ctx.globalAlpha = a;
-    const y = 1150 + (1 - ease(Math.min(1, p * 8))) * 60;
+    const y = RING.cy + (1 - ease(Math.min(1, p * 8))) * 50;
     ctx.translate(W / 2, y);
     const g = ctx.createLinearGradient(-400, 0, 400, 0);
-    g.addColorStop(0, tm.colors[0]);
-    g.addColorStop(1, shadeColor(tm.colors[0], -0.45));
-    rr(-410, -88, 820, 176, 30);
-    ctx.fillStyle = g; ctx.fill();
-    ctx.lineWidth = 7; ctx.strokeStyle = tm.colors[1]; ctx.stroke();
-    avatar(e.user, -320, 0, 56, b.kind === 'gift' ? tm : { colors: ['#333', '#ffd400'] });
-    const gi = image(e.image);
-    if (gi) ctx.drawImage(gi, 250, -70, 80, 80);
-    text(e.user.name, -240, -46, { size: 38, align: 'left', stroke: 7, max: b.kind === 'gift' ? 470 : 600 });
-    if (b.kind === 'gift') {
-      text(`${e.gift}${e.count > 1 ? ` x${e.count}` : ''}  →  ${tm.name.toLocaleUpperCase('tr-TR')}`, -240, 4, { size: 30, weight: 700, align: 'left', stroke: 6, color: '#fff', max: 600 });
-      text(`+${fmt(e.points)} PUAN`, -240, 52, { size: 46, align: 'left', stroke: 8, color: '#ffd400' });
-      badge(tm, 330, 40, 40);
+    if (b.kind === 'captain') {
+      g.addColorStop(0, '#ffd400');
+      g.addColorStop(1, '#b8860b');
     } else {
-      text(`${e.gift} gönderdi • ${fmt(e.points)} puan bekliyor!`, -240, 6, { size: 30, weight: 700, align: 'left', stroke: 6, max: 620 });
-      text('👇 Takımını yaz, puanın takımına gitsin!', -240, 52, { size: 32, align: 'left', stroke: 7, color: '#ffd400', max: 620 });
+      g.addColorStop(0, tm.colors[0]);
+      g.addColorStop(1, shadeColor(tm.colors[0], -0.45));
+    }
+    rr(-410, -84, 820, 168, 30);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = 7; ctx.strokeStyle = b.kind === 'captain' ? tm.colors[0] : tm.colors[1]; ctx.stroke();
+    avatar(e.user, -320, 0, 54, b.kind === 'need' ? { colors: ['#333', '#ffd400'] } : tm);
+    if (b.kind === 'captain') {
+      armband(-280, -40, 18);
+      text('🎖️ YENİ KAPTAN!', -238, -44, { size: 36, align: 'left', color: '#111' });
+      text(e.user.name, -238, 4, { size: 40, align: 'left', stroke: 7, max: 520 });
+      text(`${tm.name} • ${fmt(e.points)} puan`, -238, 50, { size: 28, weight: 700, align: 'left', color: '#3a2a00', max: 520 });
+      badge(tm, 330, 0, 44);
+    } else {
+      const gi = image(e.image);
+      if (gi) ctx.drawImage(gi, 250, -70, 80, 80);
+      text(e.user.name, -240, -44, { size: 38, align: 'left', stroke: 7, max: b.kind === 'gift' ? 470 : 600 });
+      if (b.kind === 'gift') {
+        text(`${e.gift}${e.count > 1 ? ` x${e.count}` : ''}  →  ${upper(tm.name)}`, -240, 4, { size: 30, weight: 700, align: 'left', stroke: 6, max: 600 });
+        text(`+${fmt(e.points)} PUAN`, -240, 50, { size: 46, align: 'left', stroke: 8, color: '#ffd400' });
+        badge(tm, 330, 38, 40);
+      } else {
+        text(`${e.gift} gönderdi • ${fmt(e.points)} puan bekliyor!`, -240, 6, { size: 30, weight: 700, align: 'left', stroke: 6, max: 620 });
+        text('👇 Takımını yaz, puanın takımına gitsin!', -240, 50, { size: 32, align: 'left', stroke: 7, color: '#ffd400', max: 620 });
+      }
     }
     ctx.restore();
   }
 
-  function shadeColor(hex, amt) {
-    const n = parseInt(hex.slice(1), 16);
-    const f = (c) => clamp(Math.round(c + (amt < 0 ? c * amt : (255 - c) * amt)), 0, 255);
-    return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
-  }
-
   function drawInfo() {
-    const y = 1478;
-    rr(20, y, W - 40, 128, 28);
-    ctx.fillStyle = 'rgba(255,212,0,.95)'; ctx.fill();
-    text('💬 Takımının ADINI ya da PLAKASINI yaz → TARAFTAR OL!', W / 2, y + 42, { size: 36, color: '#111', max: W - 80 });
+    const { y, h } = L.info;
+    rr(20, y, W - 40, h, 26);
+    ctx.fillStyle = 'rgba(255,212,0,.96)'; ctx.fill();
+    text('💬 Takımının ADINI ya da PLAKASINI yaz → TARAFTAR OL!', W / 2, y + 32, { size: 34, color: '#111', max: W - 80 });
     const r = state?.rules || { pointsPerCoin: 100, pointsPerLike: 1, pointsPerFollow: 50 };
-    text(`🎁 1 jeton = ${fmt(r.pointsPerCoin)} puan    ❤️ beğeni = ${fmt(r.pointsPerLike)} puan    ➕ takip = ${fmt(r.pointsPerFollow)} puan`, W / 2, y + 94, { size: 27, weight: 700, color: '#3a2a00', max: W - 80 });
+    text(`🎁 1 jeton = ${fmt(r.pointsPerCoin)} puan    ❤️ beğeni = ${fmt(r.pointsPerLike)} puan    🎖️ en çok veren KAPTAN olur`, W / 2, y + 72, { size: 25, weight: 700, color: '#3a2a00', max: W - 80 });
   }
 
-  function drawPanels() {
-    const y = 1624;
-    const h = 214;
+  // Krallar ve kupalar: tek sıra, kompakt
+  function drawKings() {
+    const { y, h } = L.kings;
     const pw = (W - 60) / 2;
-    for (const [i, title] of [[0, '👑 TURUN KRALLARI'], [1, '🏆 ŞAMPİYONLUKLAR']]) {
+    for (const [i, title] of [[0, '👑 TURUN KRALLARI'], [1, '🏆 KUPALAR']]) {
       const x = 20 + i * (pw + 20);
-      rr(x, y, pw, h, 24);
-      ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fill();
-      text(title, x + 22, y + 30, { size: 26, align: 'left', color: '#ffd400' });
+      rr(x, y, pw, h, 22);
+      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
+      text(title, x + 18, y + 20, { size: 20, align: 'left', color: '#ffd400' });
     }
     if (!state) return;
-    const mv = state.mvps.slice(0, 4);
-    if (!mv.length) text('İlk hediyeyi atan kral olur!', 20 + pw / 2, y + 120, { size: 24, weight: 600, color: '#ccd' });
+    const slot = (pw - 20) / 3;
+    const mv = state.mvps.slice(0, 3);
+    if (!mv.length) text('İlk hediyeyi atan kral olur!', 20 + pw / 2, y + 60, { size: 21, weight: 600, color: '#ccd' });
     mv.forEach((m, i) => {
-      const yy = y + 76 + i * 40;
+      const ex = 30 + i * slot;
       const tm = team(m.team);
-      text(`${i + 1}.`, 42, yy, { size: 24, align: 'left', color: i === 0 ? '#ffd400' : '#fff' });
-      avatar(m, 92, yy, 15, tm);
-      text(m.name, 118, yy, { size: 23, weight: 700, align: 'left', max: pw - 230 });
-      text(fmt(m.points), 20 + pw - 18, yy, { size: 23, align: 'right', color: '#9f9' });
+      avatar(m, ex + 18, y + 62, 16, tm);
+      text(m.name, ex + 42, y + 53, { size: 17, weight: 700, align: 'left', max: slot - 48 });
+      text(fmt(m.points), ex + 42, y + 74, { size: 16, weight: 700, align: 'left', color: '#9f9', max: slot - 48 });
     });
     const x2 = 40 + pw;
-    const tr = state.trophies.slice(0, 4);
-    if (!tr.length) text('İlk kupa kimin olacak?', x2 + pw / 2, y + 120, { size: 24, weight: 600, color: '#ccd' });
+    const tr = state.trophies.slice(0, 3);
+    if (!tr.length) text('İlk kupa kimin olacak?', x2 + pw / 2, y + 60, { size: 21, weight: 600, color: '#ccd' });
     tr.forEach((t, i) => {
-      const yy = y + 76 + i * 40;
+      const ex = x2 + 10 + i * slot;
       const tm = team(t.team);
-      badge(tm, x2 + 36, yy, 16);
-      text(tm.name, x2 + 64, yy, { size: 23, weight: 700, align: 'left', max: pw - 160 });
-      text(`${t.count} 🏆`, x2 + pw - 18, yy, { size: 23, align: 'right', color: '#ffd400' });
+      badge(tm, ex + 18, y + 62, 16);
+      text(tm.short, ex + 42, y + 53, { size: 17, weight: 700, align: 'left', max: slot - 48 });
+      text(`${t.count} 🏆`, ex + 42, y + 74, { size: 16, weight: 700, align: 'left', color: '#ffd400' });
     });
   }
 
+  // Alt kenarda kayan yazı (kapanabilir bölge: önemsiz bilgi)
   function drawTicker(dt) {
-    const y = 1852;
-    rr(20, y, W - 40, 52, 26);
-    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
+    const y = CORE_Y + CORE_H + 18;
+    if (y + 48 > H) return;
+    rr(20, y, W - 40, 46, 23);
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
     if (!state) return;
     const rest = state.teams.slice(TOP_N).filter((t) => t.points > 0);
-    let msg;
-    if (rest.length) {
-      msg = rest.slice(0, 25).map((t, i) => `${TOP_N + i + 1}. ${team(t.id).name} ${fmt(t.points)}`).join('   ⚽   ');
-    } else {
-      msg = `Süper Lig'den Anadolu'ya ${teamOrder.length} takım: ${teamOrder.map((id) => team(id).name).join(' • ')}`;
-    }
+    const all = `Süper Lig'den Anadolu'ya ${teamOrder.length} takım: ${teamOrder.map((id) => team(id).name).join(' • ')}`;
+    let msg = rest.length
+      ? `${rest.slice(0, 25).map((t, i) => `${TOP_N + i + 1}. ${team(t.id).name} ${fmt(t.points)}`).join('   ⚽   ')}${rest.length < 4 ? `      ${all}` : ''}`
+      : all;
     msg += '      ';
-    ctx.font = `700 26px ${FONT}`;
+    ctx.font = `700 24px ${FONT}`;
     const w = ctx.measureText(msg).width;
     tickerX -= dt * 0.09;
     if (tickerX < -w) tickerX += w;
     ctx.save();
-    rr(20, y, W - 40, 52, 26);
+    rr(20, y, W - 40, 46, 23);
     ctx.clip();
-    for (let x = tickerX + 40; x < W; x += w) text(msg, x, y + 28, { size: 26, weight: 700, align: 'left', color: '#e6f0ff' });
+    for (let x = tickerX + 40; x < W; x += w) text(msg, x, y + 24, { size: 24, weight: 700, align: 'left', color: '#c8d6ea' });
     ctx.restore();
   }
 
   function drawStatus() {
     const live = state?.live;
     if (live?.debug && params.get('debug') === '1') {
-      // Hata ayıklama: TikTok'tan gelen son olay türleri
-      rr(20, 1180, W - 40, 26 * live.debug.length + 20, 12);
+      rr(20, 640, W - 40, 26 * live.debug.length + 20, 12);
       ctx.fillStyle = 'rgba(0,0,0,.85)'; ctx.fill();
-      live.debug.forEach((line, i) => text(line, 36, 1202 + i * 26, { size: 18, weight: 600, align: 'left', color: '#9f9', max: W - 72 }));
+      live.debug.forEach((line, i) => text(line, 36, 662 + i * 26, { size: 18, weight: 600, align: 'left', color: '#9f9', max: W - 72 }));
     }
     if (!live || live.state === 'connected') return;
     const label = {
@@ -720,51 +1017,54 @@
       error: 'Bağlantı hatası',
       idle: 'Hazırlanıyor',
       auth: 'API anahtarı hatalı — ayarlara bak',
-      setup: 'DEMO • Ayarlar için ekrana dokun',
+      setup: 'DEMO • Ayarlar: sol üst köşeye 3 kez dokun',
     }[live.state] || live.state;
-    ctx.font = `700 20px ${FONT}`;
-    const lw = Math.max(300, ctx.measureText(label).width + 40);
-    rr(W / 2 - lw / 2, 156, lw, 30, 15);
-    ctx.fillStyle = live.state === 'demo' || live.state === 'setup' ? 'rgba(80,80,255,.8)' : 'rgba(200,60,0,.85)'; ctx.fill();
-    text(label, W / 2, 172, { size: 20, weight: 700 });
+    ctx.font = `700 19px ${FONT}`;
+    const lw = Math.max(280, ctx.measureText(label).width + 36);
+    rr(W / 2 - lw / 2, L.raceTop + 8, lw, 28, 14);
+    ctx.fillStyle = live.state === 'demo' || live.state === 'setup' ? 'rgba(80,80,255,.85)' : 'rgba(200,60,0,.9)'; ctx.fill();
+    text(label, W / 2, L.raceTop + 23, { size: 19, weight: 700 });
   }
 
   function drawChampion(now) {
     const c = state?.champion;
-    if (!c || !state.championUntil || serverNow() > state.championUntil) return;
+    if (!c || !state.championUntil || serverNow() > state.championUntil) return false;
     const tm = team(c.team);
-    ctx.fillStyle = 'rgba(3,6,12,.92)';
-    ctx.fillRect(0, 0, W, H);
-    // ışık hüzmeleri
     ctx.save();
-    ctx.translate(W / 2, 640);
+    ctx.translate(0, -CORE_Y);
+    ctx.fillStyle = 'rgba(3,6,12,.93)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(W / 2, 260);
     ctx.rotate(now / 3000);
     for (let i = 0; i < 12; i++) {
       ctx.rotate(Math.PI / 6);
       ctx.fillStyle = i % 2 ? `${tm.colors[0]}55` : `${tm.colors[1]}44`;
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-90, -1200); ctx.lineTo(90, -1200); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-90, -1300); ctx.lineTo(90, -1300); ctx.fill();
     }
     ctx.restore();
     if (Math.random() < 0.5) confetti(Math.random() * W, -20, tm.colors.concat(['#ffd400']), 3);
-    text(`TUR ${c.round} ŞAMPİYONU`, W / 2, 300, { size: 64, stroke: 12, color: '#ffd400' });
+    text(`TUR ${c.round} ŞAMPİYONU`, W / 2, 40, { size: 60, stroke: 12, color: '#ffd400' });
     const s = 1 + Math.sin(now / 300) * 0.04;
-    ctx.save(); ctx.translate(W / 2, 400); ctx.scale(s, s); jersey(tm, 0, 0, 380); ctx.restore();
-    text('🏆', W / 2 - 240, 560, { size: 120 });
-    text('🏆', W / 2 + 240, 560, { size: 120 });
-    text(tm.name.toLocaleUpperCase('tr-TR'), W / 2, 860, { size: 96, stroke: 14, max: W - 80 });
-    text(`${fmt(c.points)} puan  •  ${c.trophies}. şampiyonluk`, W / 2, 950, { size: 44, stroke: 8, color: '#ffd400' });
-    if (c.runnerUp) text(`2. ${team(c.runnerUp.team).name} — ${fmt(c.runnerUp.points)}`, W / 2, 1020, { size: 34, weight: 700, stroke: 6, color: '#ddd' });
+    ctx.save(); ctx.translate(W / 2, 90); ctx.scale(s, s); jersey(tm, 0, 0, 300); ctx.restore();
+    text('🏆', W / 2 - 230, 250, { size: 110 });
+    text('🏆', W / 2 + 230, 250, { size: 110 });
+    text(upper(tm.name), W / 2, 470, { size: 88, stroke: 14, max: W - 80 });
+    text(`${fmt(c.points)} puan  •  ${c.trophies}. şampiyonluk`, W / 2, 550, { size: 42, stroke: 8, color: '#ffd400' });
+    if (c.runnerUp) text(`2. ${team(c.runnerUp.team).name} — ${fmt(c.runnerUp.points)}`, W / 2, 610, { size: 32, weight: 700, stroke: 6, color: '#ddd' });
     if (c.mvps?.length) {
-      text('Şampiyonluğu getiren krallar', W / 2, 1110, { size: 36, color: '#fff', stroke: 6 });
+      text('Şampiyonluğu getiren krallar', W / 2, 690, { size: 34, stroke: 6 });
       c.mvps.slice(0, 3).forEach((m, i) => {
         const x = W / 2 + (i - (Math.min(3, c.mvps.length) - 1) / 2) * 300;
-        avatar(m, x, 1220, 60, team(m.team));
-        text(m.name, x, 1310, { size: 30, stroke: 6, max: 280 });
-        text(fmt(m.points), x, 1350, { size: 28, color: '#9f9', stroke: 6 });
+        avatar(m, x, 790, 56, team(m.team));
+        text(m.name, x, 872, { size: 28, stroke: 6, max: 280 });
+        text(fmt(m.points), x, 910, { size: 26, color: '#9f9', stroke: 6 });
       });
     }
     const left = Math.max(0, Math.ceil((state.championUntil - serverNow()) / 1000));
-    text(`Yeni tur ${left} sn içinde başlıyor — takımını yaz, hazır ol!`, W / 2, 1450, { size: 34, weight: 700, stroke: 6, max: W - 60 });
+    text(`Yeni tur ${left} sn içinde başlıyor — takımını yaz, hazır ol!`, W / 2, 1010, { size: 32, weight: 700, stroke: 6, max: W - 60 });
+    return true;
   }
 
   function drawParticles(dt) {
@@ -777,7 +1077,7 @@
       p.y += p.vy * f;
       p.rot += p.vr * f;
       p.life -= 0.006 * f;
-      if (p.life <= 0 || p.y > H + 40) { particles.splice(i, 1); continue; }
+      if (p.life <= 0 || p.y > H) { particles.splice(i, 1); continue; }
       ctx.save();
       ctx.globalAlpha = Math.min(1, p.life * 2);
       ctx.translate(p.x, p.y);
@@ -788,22 +1088,49 @@
     }
   }
 
+  // Kontrol için: TikTok arayüzünün kapatabileceği bölgeler (?guides=1)
+  function drawGuides() {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,0,0,.28)';
+    ctx.fillRect(0, 0, W, H * SAFE_TOP);
+    ctx.fillRect(0, H * (1 - SAFE_BOTTOM), W, H * SAFE_BOTTOM);
+    ctx.strokeStyle = '#0f0';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(2, CORE_Y, W - 4, CORE_H);
+    text('TikTok üst arayüzü (yayıncı, izleyici sayısı)', W / 2, H * SAFE_TOP / 2, { size: 30, stroke: 6 });
+    text('TikTok alt arayüzü (yorumlar, butonlar)', W / 2, H * (1 - SAFE_BOTTOM / 2), { size: 30, stroke: 6 });
+    ctx.restore();
+  }
+
   // ---------- döngü ----------
   let last = performance.now();
   function frame(now) {
     const dt = Math.min(100, now - last);
     last = now;
     drawBackground(now);
-    drawHeader(now);
-    drawRace(now, dt);
-    drawStadium(now, dt);
-    drawBanners(now);
-    drawInfo();
-    drawPanels();
     drawTicker(dt);
-    drawStatus();
-    drawChampion(now);
+
+    ctx.save();
+    ctx.translate(0, CORE_Y);
+    if (now < shakeUntil) ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+    const champ = state?.champion && state.championUntil && serverNow() <= state.championUntil;
+    if (!champ) {
+      drawHeader();
+      drawRace(now, dt);
+      drawStadium(now, dt);
+      drawCelebration(now);
+      drawEmojiParts(dt);
+      drawBanners(now);
+      drawInfo();
+      drawKings();
+      drawStatus();
+    } else {
+      drawChampion(now);
+    }
     drawParticles(dt);
+    ctx.restore();
+
+    if (GUIDES) drawGuides();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

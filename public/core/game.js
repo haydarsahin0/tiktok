@@ -21,6 +21,8 @@ export const DEFAULT_RULES = {
   pointsPerJoin: 10, // turda ilk kez takımını yazana
   roundMinutes: 60, // 0 = tur hiç bitmez, puanlar birikir
   championSeconds: 15, // şampiyonluk ekranı süresi
+  captainMinPoints: 1000, // kaptanlık değişimi en az bu puanla duyurulur (10 jeton)
+  captainCooldownSec: 20, // aynı takımda iki kaptan duyurusu arası en az süre
   maxUsers: 20000, // kayıtlı taraftar sınırı (en eski silinir)
 };
 
@@ -53,6 +55,8 @@ export class Game extends Emitter {
     this.points = {}; // teamId -> puan
     this.fans = {}; // uid -> { team, points, pending } (bu turda aktif olanlar)
     this.leader = null;
+    this.captains = {}; // teamId -> uid (duyuru takibi için)
+    this.captainChangedAt = {};
     this.dirty = true;
   }
 
@@ -136,11 +140,38 @@ export class Game extends Emitter {
     f.points += amount;
     f.team = teamId;
     this.dirty = true;
+    this.updateCaptain(teamId, uid);
     const lead = this.ranking()[0];
     if (lead && lead.points > 0 && lead.id !== before) {
       this.leader = lead.id;
       if (before) this.emit('event', { type: 'leader', team: lead.id, previous: before, reason });
     }
+  }
+
+  // Takım kaptanı: o takımın bu turda en çok puan getiren taraftarı
+  updateCaptain(teamId, uid) {
+    const cur = this.captains[teamId];
+    if (cur === uid) return;
+    const f = this.fans[uid];
+    const curF = cur && this.fans[cur];
+    if (cur && curF && curF.team === teamId && curF.points >= f.points) return;
+    this.captains[teamId] = uid;
+    const t = this.clock();
+    const cooldown = this.rules.captainCooldownSec * 1000;
+    if (cur && f.points >= this.rules.captainMinPoints && t - (this.captainChangedAt[teamId] || 0) >= cooldown) {
+      this.captainChangedAt[teamId] = t;
+      this.emit('event', { type: 'captain', team: teamId, user: this.publicUser(uid), points: f.points, previous: this.publicUser(cur) });
+    }
+  }
+
+  captainsByTeam() {
+    const best = {};
+    for (const [uid, f] of Object.entries(this.fans)) {
+      if (!f.team || f.points <= 0) continue;
+      const b = best[f.team];
+      if (!b || f.points > b.points) best[f.team] = { uid, points: f.points };
+    }
+    return best;
   }
 
   onChat(user, text) {
@@ -236,11 +267,13 @@ export class Game extends Emitter {
     const rest = TEAMS.filter((t) => !seen.has(t.id))
       .map((t, i) => ({ id: t.id, points: 0, order: [fanCount[t.id] || 0, this.trophies[t.id] || 0, -i] }))
       .sort((a, b) => b.order[0] - a.order[0] || b.order[1] - a.order[1] || b.order[2] - a.order[2]);
+    const caps = this.captainsByTeam();
     const teams = [...ranked, ...rest].map((r) => ({
       id: r.id,
       points: r.points,
       fans: fanCount[r.id] || 0,
       trophies: this.trophies[r.id] || 0,
+      captain: caps[r.id] ? { ...this.publicUser(caps[r.id].uid), points: caps[r.id].points } : null,
     }));
 
     const activeFans = Object.entries(this.fans)

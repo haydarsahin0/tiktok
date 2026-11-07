@@ -935,13 +935,60 @@
     ctx.restore();
   }
 
+  // ---------- basit simgeler (emoji yerine; her cihazda aynı) ----------
+  function giftIcon(x, y, r) {
+    ctx.fillStyle = '#c8102e';
+    ctx.fillRect(x - r, y - r * 0.55, r * 2, r * 1.55);
+    ctx.fillStyle = '#e8213d';
+    ctx.fillRect(x - r * 1.15, y - r * 0.95, r * 2.3, r * 0.5);
+    ctx.fillStyle = '#ffd400';
+    ctx.fillRect(x - r * 0.18, y - r * 0.95, r * 0.36, r * 1.95);
+    ctx.beginPath();
+    ctx.ellipse(x - r * 0.45, y - r * 1.15, r * 0.42, r * 0.25, -0.5, 0, Math.PI * 2);
+    ctx.ellipse(x + r * 0.45, y - r * 1.15, r * 0.42, r * 0.25, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  function heartIcon(x, y, r) {
+    ctx.fillStyle = '#e8213d';
+    ctx.beginPath();
+    ctx.moveTo(x, y + r * 0.95);
+    ctx.bezierCurveTo(x - r * 1.5, y - r * 0.1, x - r * 0.9, y - r * 1.25, x, y - r * 0.45);
+    ctx.bezierCurveTo(x + r * 0.9, y - r * 1.25, x + r * 1.5, y - r * 0.1, x, y + r * 0.95);
+    ctx.fill();
+  }
+  function plusIcon(x, y, r) {
+    ctx.fillStyle = '#1f6fd1';
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x - r * 0.55, y - r * 0.14, r * 1.1, r * 0.28);
+    ctx.fillRect(x - r * 0.14, y - r * 0.55, r * 0.28, r * 1.1);
+  }
+
   function drawInfo() {
     const { y, h } = L.info;
     rr(20, y, W - 40, h, 26);
     ctx.fillStyle = 'rgba(255,212,0,.96)'; ctx.fill();
-    text('💬 Takımının ADINI ya da PLAKASINI yaz → TARAFTAR OL!', W / 2, y + 30, { size: 33, color: '#111', max: W - 80 });
+    text('Takımının ADINI ya da PLAKASINI yaz → TARAFTAR OL!', W / 2, y + 30, { size: 34, color: '#111', max: W - 80 });
+    // Puan satırı: emoji yok (her telefonda farklı genişlikte çiziliyordu); simgeler elle çizilir,
+    // her bilgi kendi üçte birlik bölümünde ortalanır, taşamaz.
     const r = state?.rules || { pointsPerCoin: 100, pointsPerLike: 1, pointsPerFollow: 50 };
-    text(`🎁 1 jeton = ${fmt(r.pointsPerCoin)} puan    ❤️ beğeni = ${fmt(r.pointsPerLike)} puan    ➕ takip = ${fmt(r.pointsPerFollow)} puan`, W / 2, y + 68, { size: 26, weight: 700, color: '#3a2a00', max: W - 80 });
+    const items = [
+      [giftIcon, `1 jeton = ${fmt(r.pointsPerCoin)} puan`],
+      [heartIcon, `beğeni = ${fmt(r.pointsPerLike)} puan`],
+      [plusIcon, `takip = ${fmt(r.pointsPerFollow)} puan`],
+    ];
+    const colW = (W - 80) / 3;
+    items.forEach(([icon, label], i) => {
+      const cx = 40 + colW * i + colW / 2;
+      ctx.font = `700 25px ${FONT}`;
+      const tw = Math.min(ctx.measureText(label).width, colW - 60);
+      const x0 = cx - (tw + 34) / 2;
+      icon(x0 + 12, y + 68, 12);
+      text(label, x0 + 34, y + 69, { size: 25, weight: 700, color: '#3a2a00', align: 'left', max: colW - 60 });
+      if (i) { ctx.fillStyle = 'rgba(58,42,0,.35)'; ctx.fillRect(40 + colW * i - 1, y + 56, 2, 26); }
+    });
     // Kaptan satırı: emoji yerine sütunlardaki sarı "C" bandı (her telefonda aynı görünür)
     const msg = 'En çok hediye atan, takımının KAPTANI olur!';
     ctx.font = `800 26px ${FONT}`;

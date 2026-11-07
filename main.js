@@ -5,7 +5,7 @@ const O = window.Overlay;
 
 async function hasServer() {
   try {
-    const r = await fetch('api/state', { cache: 'no-store' });
+    const r = await fetch(new URL('api/state', import.meta.url), { cache: 'no-store' });
     return r.ok && (r.headers.get('content-type') || '').includes('json');
   } catch {
     return false;
@@ -23,7 +23,8 @@ function connectServer() {
   ws.onclose = () => setTimeout(connectServer, 2000);
 }
 
-if (await hasServer()) {
+const LIG_ID = window.LIG?.id || 'taraftar';
+if (LIG_ID === 'taraftar' && (await hasServer())) {
   connectServer();
 } else {
   const { startLocal } = await import('./local.js');

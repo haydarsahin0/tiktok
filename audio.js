@@ -7,7 +7,9 @@
   const params = new URLSearchParams(location.search);
   const DEFAULTS = { music: true, musicVolume: 0.35, sfx: true, sfxVolume: 0.6 };
   let cfg = { ...DEFAULTS };
-  try { Object.assign(cfg, JSON.parse(localStorage.getItem('taraftar.config') || '{}').audio || {}); } catch { /* yok */ }
+  const LIG_ID = window.LIG?.id || params.get('lig') || 'taraftar';
+  const POP = window.LIG?.music === 'pop'; // Manifest Ligi: daha hareketli pop altyapı
+  try { Object.assign(cfg, JSON.parse(localStorage.getItem(`${LIG_ID}.config`) || '{}').audio || {}); } catch { /* yok */ }
   if (params.has('music')) cfg.music = params.get('music') !== '0';
   if (params.has('sfx')) cfg.sfx = params.get('sfx') !== '0';
   if (params.get('sound') === '0') { cfg.music = false; cfg.sfx = false; }
@@ -15,7 +17,7 @@
   // iPhone/iPad: zil sessizdeyken de çalabilmesi için ses oturumu "oynatma" olmalı (Safari 16.4+)
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* yok */ }
 
-  const BPM = 94;
+  const BPM = POP ? 108 : 94;
   const EIGHTH = 60 / BPM / 2;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
@@ -207,16 +209,34 @@
     noise(t, 0.08, f);
   }
 
+  function clap(t) {
+    const g = ctx.createGain();
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 1500;
+    f.Q.value = 0.8;
+    f.connect(g).connect(musicVol);
+    env(g, t, 0.06, 0.003, 0.12);
+    noise(t, 0.15, f);
+  }
+
   // ---------- beste ----------
   // Akor yürüyüşü (Do majör): C - G - Am - F, her akor 2 ölçü. 8 ölçülük döngü.
-  const CHORDS = [
-    { pad: [60, 64, 67], bass: 36, arp: [72, 76, 79, 84] },
-    { pad: [59, 62, 67], bass: 43, arp: [71, 74, 79, 83] },
-    { pad: [60, 64, 69], bass: 45, arp: [72, 76, 81, 84] },
-    { pad: [60, 65, 69], bass: 41, arp: [72, 77, 81, 84] },
-  ];
-  const ARP = [0, 1, 2, 3, 2, 1, 2, -1]; // -1 = es (nefes)
-  const PENTA = [72, 74, 76, 79, 81, 84];
+  const CHORDS = POP
+    ? [ // Am - F - C - G (pop)
+      { pad: [57, 60, 64], bass: 45, arp: [69, 72, 76, 81] },
+      { pad: [57, 60, 65], bass: 41, arp: [69, 72, 77, 81] },
+      { pad: [55, 60, 64], bass: 36, arp: [67, 72, 76, 79] },
+      { pad: [55, 59, 62], bass: 43, arp: [67, 71, 74, 79] },
+    ]
+    : [ // C - G - Am - F
+      { pad: [60, 64, 67], bass: 36, arp: [72, 76, 79, 84] },
+      { pad: [59, 62, 67], bass: 43, arp: [71, 74, 79, 83] },
+      { pad: [60, 64, 69], bass: 45, arp: [72, 76, 81, 84] },
+      { pad: [60, 65, 69], bass: 41, arp: [72, 77, 81, 84] },
+    ];
+  const ARP = POP ? [0, 2, 1, 3, 0, 2, 1, 3] : [0, 1, 2, 3, 2, 1, 2, -1]; // -1 = es (nefes)
+  const PENTA = POP ? [69, 72, 74, 76, 79, 81] : [72, 74, 76, 79, 81, 84];
   let seed = 7;
   const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 
@@ -236,6 +256,7 @@
 
     if (section > 0) {
       if (inBar === 0 || inBar === 4) kick(t);
+      if (POP && (inBar === 2 || inBar === 6)) clap(t);
       if (inBar % 2 === 1) shaker(t, 0.8);
       else if (section === 3) shaker(t, 0.4);
     }

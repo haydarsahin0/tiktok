@@ -1,15 +1,16 @@
 // Sunucusuz mod: oyun tamamen bu tarayıcı sekmesinde çalışır (GitHub Pages / tablet / telefon).
-import { TEAMS, findTeam } from './core/teams.js';
 import { Game } from './core/game.js';
 import { startDemo } from './core/demo.js';
 import { connectEuler } from './euler.js';
 import { connectRelay, sameOriginRelay } from './relay-client.js';
 import { loadConfig, browserStorage, channel } from './config.js';
+import { loadLeague } from './league.js';
 
 export async function startLocal(O) {
   const cfg = loadConfig();
   const bc = channel();
-  const game = new Game({ rules: cfg.rules, storage: browserStorage });
+  const league = await loadLeague();
+  const game = new Game({ rules: cfg.rules, storage: browserStorage, roster: league.roster });
 
   // TikTok verisi nereden gelecek?
   //  relay: ücretsiz aktarıcı (Render vb.) — bu sayfa aktarıcıdan açıldıysa adres otomatik
@@ -27,7 +28,7 @@ export async function startLocal(O) {
   const configured = Boolean(source);
   let live = { state: configured ? 'idle' : cfg.demo ? 'demo' : 'setup', username: cfg.username, viewers: 0, message: '', debug: null };
 
-  O.setTeams(TEAMS);
+  O.setTeams(league.roster.teams);
   game.on('event', (e) => {
     O.event(e);
     bc.postMessage({ type: 'event', event: e });
@@ -65,7 +66,7 @@ export async function startLocal(O) {
   } else {
     // Ayar yapılmamışsa ayarlar butonunu göster, demo ile başla ki ekran boş görünmesin
     if (!cfg.demo) document.getElementById('tap')?.classList.add('show');
-    stopDemo = startDemo(game, { speed: 1 });
+    stopDemo = startDemo(game, { speed: 1, roster: league.roster, ...league.demo });
   }
 
   // Ayarlar sayfasından gelen komutlar
@@ -79,7 +80,7 @@ export async function startLocal(O) {
       else if (msg.kind === 'follow' || msg.kind === 'share') game.onSocial(u, msg.kind);
     } else if (msg.type === 'celebrate') {
       // Ayarlar sayfasından: bir takımın kutlamasını önizle
-      const t = findTeam(msg.text || '');
+      const t = league.roster.findTeam(msg.text || '');
       if (t) O.event({ type: 'leader', team: t.id, force: true });
     } else if (msg.type === 'audio') {
       window.TaraftarAudio?.configure(msg.audio);

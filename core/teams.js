@@ -64,65 +64,10 @@ export const TEAMS = [
   { id: 'dardanel', name: 'Dardanelspor', short: 'ÇANAKKALE', code: 'DAR', colors: ['#FFD100', '#0A2A66'], aliases: ['dardanelspor', 'dardanel', 'canakkale'], plate: '17' },
 ];
 
-export const TEAM_BY_ID = Object.fromEntries(TEAMS.map((t) => [t.id, t]));
+// Ad tanıma (yorumdaki takımı bulma) ortak kadro modülünde: roster.js
+import { makeRoster, normalize } from './roster.js';
 
-// Türkçe karakterleri sadeleştirip küçük harfe çevirir: "Fenerbahçe!!" -> "fenerbahce"
-export function normalize(text) {
-  return String(text || '')
-    .replace(/İ/g, 'i')
-    .replace(/I/g, 'ı')
-    .toLowerCase()
-    .replace(/ı/g, 'i')
-    .replace(/ş/g, 's')
-    .replace(/ğ/g, 'g')
-    .replace(/ü/g, 'u')
-    .replace(/ö/g, 'o')
-    .replace(/ç/g, 'c')
-    .replace(/â/g, 'a')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-// Arama tablosu: normalize edilmiş takma ad -> takım id. Uzun adlar önce denenir
-// ("adana demirspor" kısa "adana..." eşleşmelerinden önce gelsin diye).
-const ALIAS_LIST = [];
-const PLATES = new Map();
-for (const team of TEAMS) {
-  for (const alias of new Set([...team.aliases, team.name, team.id])) {
-    const a = normalize(alias);
-    if (a) ALIAS_LIST.push({ alias: a, id: team.id });
-  }
-  if (team.plate) PLATES.set(team.plate, team.id);
-}
-ALIAS_LIST.sort((x, y) => y.alias.length - x.alias.length);
-
-/**
- * Yorumdaki takımı bulur.
- * @returns {{ id: string, exact: boolean } | null}
- *   exact = mesajın tamamı takım adı/plakası mı (takım değiştirmek için gerekli)
- */
-export function findTeam(text) {
-  const norm = normalize(text);
-  if (!norm) return null;
-
-  const plate = norm.replace(/\s+/g, '');
-  if (/^\d{1,2}$/.test(plate)) {
-    const id = PLATES.get(plate.padStart(2, '0'));
-    return id ? { id, exact: true } : null;
-  }
-
-  const padded = ` ${norm} `;
-  const squashed = norm.replace(/\s+/g, '');
-  for (const { alias, id } of ALIAS_LIST) {
-    if (padded.includes(` ${alias} `)) {
-      return { id, exact: norm === alias };
-    }
-  }
-  // "Trabzonspor61" / "fenerbahceee" gibi bitişik yazımlar için tek kelime kontrolü
-  for (const { alias, id } of ALIAS_LIST) {
-    if (alias.length >= 5 && !alias.includes(' ') && squashed.startsWith(alias) && squashed.length - alias.length <= 4) {
-      return { id, exact: true };
-    }
-  }
-  return null;
-}
+export const FOOTBALL = makeRoster(TEAMS);
+export const TEAM_BY_ID = FOOTBALL.byId;
+export const findTeam = FOOTBALL.findTeam;
+export { normalize };

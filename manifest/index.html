@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="tr" translate="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#12051f" />
+  <meta name="google" content="notranslate" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="app.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <title>Manifest Ligi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #12051f; overflow: hidden; overscroll-behavior: none; }
+    body.transparent { background: transparent; }
+    #stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+    canvas { display: block; max-width: 100vw; max-height: 100vh; } /* asıl boyutu overlay.js ekrana göre ayarlar */
+    #tap { position: fixed; inset: 0; display: none; flex-direction: column; gap: 6px; align-items: center; justify-content: center; background: rgba(0,0,0,.86); color: #fff;
+      font: 800 22px/1.4 "Baloo 2", system-ui, sans-serif; text-align: center; padding: 24px; z-index: 2; }
+    #tap.show { display: flex; }
+    #soundHint { position: fixed; left: 50%; bottom: 3%; transform: translateX(-50%); z-index: 3; background: rgba(0,0,0,.8); color: #fff;
+      font: 700 16px/1.3 "Baloo 2", system-ui, sans-serif; padding: 8px 18px; border-radius: 999px; pointer-events: none; white-space: nowrap; }
+    #soundHint[hidden] { display: none; }
+    #settings { margin-top: 18px; padding: 10px 22px; border-radius: 999px; background: #ff3fa4; color: #fff; text-decoration: none; font-size: 20px; }
+  </style>
+</head>
+<body>
+  <div id="stage"><canvas id="c" width="1080" height="1920"></canvas></div>
+  <div id="tap"><div id="tapTitle">📱 Tam ekran için dokun</div><small id="tapText" style="font-weight:600">Adres çubuğu gizlenir, ekran yayın boyunca kapanmaz, müzik başlar</small>
+    <a id="settings" href="../ayarlar.html?lig=manifest">⚙️ Ayarlar</a></div>
+  <script src="theme.js"></script>
+  <script src="../page.js"></script>
+  <div id="soundHint" hidden>🔊 Müzik ve sesler için ekrana bir kez dokun</div>
+  <script src="../audio.js"></script>
+  <script src="../overlay.js"></script>
+  <script type="module" src="../main.js"></script>
+</body>
+</html>

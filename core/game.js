@@ -1,4 +1,4 @@
-import { TEAMS, TEAM_BY_ID, findTeam } from './teams.js';
+import { FOOTBALL } from './teams.js';
 
 // Bu dosya hem tarayıcıda (GitHub Pages / tablet) hem Node sunucusunda çalışır.
 // Kayıt yeri dışarıdan verilir: storage = { read(): string|null, write(text) }
@@ -29,8 +29,9 @@ export const DEFAULT_RULES = {
 const now = () => Date.now();
 
 export class Game extends Emitter {
-  constructor({ rules = {}, storage = null, clock = now } = {}) {
+  constructor({ rules = {}, storage = null, clock = now, roster = FOOTBALL } = {}) {
     super();
+    this.roster = roster;
     this.rules = { ...DEFAULT_RULES, ...rules };
     this.storage = storage;
     this.clock = clock;
@@ -177,7 +178,7 @@ export class Game extends Emitter {
   onChat(user, text) {
     const u = this.touchUser(user);
     if (!u) return;
-    const match = findTeam(text);
+    const match = this.roster.findTeam(text);
     const f = this.fan(user.id);
 
     if (match && (!u.team || (match.exact && match.id !== u.team))) {
@@ -264,7 +265,7 @@ export class Game extends Emitter {
     // Puanı olanlar önce, sonra taraftarı olanlar, sonra kupa sayısına göre diğerleri
     const ranked = this.ranking();
     const seen = new Set(ranked.map((r) => r.id));
-    const rest = TEAMS.filter((t) => !seen.has(t.id))
+    const rest = this.roster.teams.filter((t) => !seen.has(t.id))
       .map((t, i) => ({ id: t.id, points: 0, order: [fanCount[t.id] || 0, this.trophies[t.id] || 0, -i] }))
       .sort((a, b) => b.order[0] - a.order[0] || b.order[1] - a.order[1] || b.order[2] - a.order[2]);
     const caps = this.captainsByTeam();
@@ -337,7 +338,7 @@ export class Game extends Emitter {
       }
       // Listeden çıkarılmış takımları temizle
       for (const map of [this.points, this.trophies]) {
-        for (const id of Object.keys(map)) if (!TEAM_BY_ID[id]) delete map[id];
+        for (const id of Object.keys(map)) if (!this.roster.byId[id]) delete map[id];
       }
       this.leader = this.ranking()[0]?.id || null;
     } catch (err) {

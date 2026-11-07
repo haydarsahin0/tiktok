@@ -1,4 +1,4 @@
-import { TEAMS } from './teams.js';
+import { FOOTBALL } from './teams.js';
 
 // Gerçek yayın olmadan denemek için sahte izleyiciler üretir.
 const NAMES = [
@@ -27,14 +27,14 @@ function weighted(arr) {
   return arr[0];
 }
 
-export function startDemo(game, { speed = 1 } = {}) {
-  // Demo'da sadece birkaç takım öne çıksın ki yarış görünsün
-  const favorites = ['ts', 'gs', 'fb', 'bjk', 'sivas', 'bursa', 'goztepe', 'amed', 'samsun', 'erzurum', 'konya'];
-  const users = NAMES.map((name, i) => ({
+export function startDemo(game, { speed = 1, roster = FOOTBALL, favorites, names = NAMES, chats = CHATS } = {}) {
+  // Demo'da sadece birkaç taraf öne çıksın ki yarış görünsün
+  const favs = favorites || ['ts', 'gs', 'fb', 'bjk', 'sivas', 'bursa', 'goztepe', 'amed', 'samsun', 'erzurum', 'konya'];
+  const users = names.map((name, i) => ({
     id: `demo_${i}`,
     name,
     avatar: '',
-    want: Math.random() < 0.8 ? pick(favorites) : pick(TEAMS).id,
+    want: Math.random() < 0.8 ? pick(favs) : pick(roster.teams).id,
   }));
   const joined = new Set();
 
@@ -42,7 +42,7 @@ export function startDemo(game, { speed = 1 } = {}) {
     const u = pick(users);
     const r = Math.random();
     if (!joined.has(u.id) || r < 0.15) {
-      const team = TEAMS.find((t) => t.id === u.want);
+      const team = roster.byId[u.want];
       const say = Math.random() < 0.3 && team.plate ? team.plate : pick(team.aliases);
       game.onChat(u, say);
       joined.add(u.id);
@@ -52,7 +52,7 @@ export function startDemo(game, { speed = 1 } = {}) {
     } else if (r < 0.75) {
       game.onLike(u, 1 + Math.floor(Math.random() * 15));
     } else {
-      game.onChat(u, pick(CHATS));
+      game.onChat(u, pick(chats));
     }
   };
   const timer = setInterval(step, Math.max(50, 700 / speed));

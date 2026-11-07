@@ -2,20 +2,23 @@ import { EventEmitter } from 'node:events';
 import { WebSocketServer } from 'ws';
 import { TikTokBridge } from './tiktok.js';
 import { startDemo } from '../public/core/demo.js';
+import { MANIFEST, MANIFEST_DEMO } from '../public/core/manifest.js';
 
 // Aktarıcı (relay): TikTok yayınını sunucuda dinler, olayları tarayıcıya (tablete) iletir.
 // Oyunun kendisi tablette çalışır; sunucu sadece "postacı"dır, hiçbir şey saklamaz.
 // Tablet şu adrese bağlanır: wss://<sunucu>/relay?user=<tiktok_kullanıcı_adı>[&key=<RELAY_KEY>]
 
 class FakeBridge extends EventEmitter {
-  // Test için: gerçek TikTok yerine sahte izleyiciler
+  // Test için: gerçek TikTok yerine sahte izleyiciler (Manifest liginde üye adlarını yazarlar)
+  constructor(lig) { super(); this.lig = lig; }
   start() {
     this.emit('status', { state: 'connected', message: 'test (sahte izleyiciler)' });
+    const extra = this.lig === 'manifest' ? { roster: MANIFEST, ...MANIFEST_DEMO } : {};
     this.stopDemo = startDemo({
       onChat: (u, t) => this.emit('chat', u, t),
       onGift: (u, g) => this.emit('gift', u, g),
       onLike: (u, c) => this.emit('like', u, c),
-    });
+    }, extra);
     return Promise.resolve();
   }
   stop() { this.stopDemo?.(); }
@@ -25,13 +28,15 @@ export function createRelay({ signApiKey, key = '', allowedUsers = [], fake = fa
   const wss = new WebSocketServer({ noServer: true });
   const rooms = new Map(); // kullanıcı adı -> { bridge, clients:Set, status, idleTimer }
 
-  function room(username) {
-    let r = rooms.get(username);
+  function room(username, lig) {
+    const isTest = fake || username === 'test';
+    const roomKey = isTest ? `${username}|${lig}` : username;
+    let r = rooms.get(roomKey);
     if (r) {
       clearTimeout(r.idleTimer);
       return r;
     }
-    const bridge = fake || username === 'test' ? new FakeBridge() : new TikTokBridge(username, { signApiKey });
+    const bridge = isTest ? new FakeBridge(lig) : new TikTokBridge(username, { signApiKey });
     r = { bridge, clients: new Set(), status: { state: 'connecting', username, viewers: 0, message: '' } };
     const send = (msg) => {
       const data = JSON.stringify(msg);
@@ -43,13 +48,13 @@ export function createRelay({ signApiKey, key = '', allowedUsers = [], fake = fa
     bridge.on('like', (user, count) => send({ type: 'like', user, count }));
     bridge.on('social', (user, kind) => send({ type: 'social', user, kind }));
     bridge.start().catch((err) => console.error('[aktarıcı] başlatılamadı:', err));
-    rooms.set(username, r);
+    rooms.set(roomKey, r);
     console.log(`[aktarıcı] @${username} dinleniyor`);
     return r;
   }
 
-  wss.on('connection', (ws, username) => {
-    const r = room(username);
+  wss.on('connection', (ws, username, lig) => {
+    const r = room(username, lig);
     r.clients.add(ws);
     ws.send(JSON.stringify({ type: 'status', status: r.status }));
     // Bağlantı canlı mı? (bazı barındırma servisleri boşta kalan bağlantıyı keser)
@@ -61,7 +66,7 @@ export function createRelay({ signApiKey, key = '', allowedUsers = [], fake = fa
         // Kimse dinlemiyorsa 2 dk sonra TikTok bağlantısını kapat
         r.idleTimer = setTimeout(() => {
           r.bridge.stop();
-          rooms.delete(username);
+          rooms.delete([...rooms].find(([, v]) => v === r)?.[0]);
           console.log(`[aktarıcı] @${username} bırakıldı`);
         }, 120000);
       }
@@ -81,7 +86,8 @@ export function createRelay({ signApiKey, key = '', allowedUsers = [], fake = fa
       socket.destroy();
       return true;
     }
-    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, username));
+    const lig = (url.searchParams.get('lig') || 'taraftar').replace(/[^a-z]/g, '').slice(0, 20);
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, username, lig));
     return true;
   };
 }

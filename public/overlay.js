@@ -16,7 +16,7 @@
   const params = new URLSearchParams(location.search);
   const TRANSPARENT = params.get('transparent') === '1';
   const GUIDES = params.get('guides') === '1';
-  const TOP_N = 8;
+  let TOP_N = 8; // setTeams'te yarışan sayısına göre ayarlanır
   const MAX_FANS = 56;
   const FONT = '"Baloo 2", "Segoe UI", Arial, sans-serif';
 
@@ -87,6 +87,40 @@
     samsun: { kind: 'lightning', title: 'KIRMIZI ŞİMŞEK!', sound: 'thunder' },
   };
   const DEFAULT_CELEB = { kind: 'fireworks', title: 'ZİRVE BİZİM!', sound: 'fireworks' };
+
+  // ---------- tema: futbol varsayılan; başka lig sayfası window.LIG.theme ile değiştirir ----------
+  const T = {
+    title: 'TARAFTAR LİGİ',
+    fansLabel: 'taraftar sahada',
+    icon: 'jersey', // jersey | idol
+    arena: 'pitch', // pitch | stage
+    logo: 'crescent', // crescent | star
+    ball: '⚽',
+    goal: ['GOL!', 'GOOOOL!!'],
+    headerColors: ['rgba(200,16,46,.95)', 'rgba(120,8,28,.95)'],
+    bg: ['#050d1d', '#0c2a3f', '#0e3b2a', '#04140d'],
+    light: 'rgba(255,255,230,.18)',
+    infoColor: 'rgba(255,212,0,.96)',
+    stand: ['#24313f', '#0f1720'],
+    instruction: 'Takımının ADINI ya da PLAKASINI yaz → TARAFTAR OL!',
+    captainLine: 'En çok hediye atan, takımının KAPTANI olur!',
+    captainCard: 'YENİ KAPTAN!',
+    kingsTitle: '👑 TURUN KRALLARI',
+    trophiesTitle: '🏆 KUPALAR',
+    emptyLine: 'Takımını yaz, sahaya ilk sen çık! 👇',
+    needLine: '👇 Takımını yaz, puanın takımına gitsin!',
+    roundStart: '🟢 Yeni tur başladı! Takımını yaz, sahaya çık!',
+    joinToast: (u, t) => `${u} ${t} taraftarı oldu!`,
+    transferToast: (u, from, to) => `🔁 ${u} transfer: ${from} → ${to}`,
+    tickerAll: (names) => `Süper Lig'den Anadolu'ya ${names.length} takım: ${names.join(' • ')}`,
+    championTitle: (n) => `TUR ${n} ŞAMPİYONU`,
+    championMvps: 'Şampiyonluğu getiren krallar',
+    leaderSub: (name) => `${name} ZİRVEDE`,
+    topN: 8,
+    celebrations: CELEB,
+    defaultCelebration: DEFAULT_CELEB,
+    ...(window.LIG?.theme || {}),
+  };
   const CELEB_DUR = 4800;
   const CELEB_COOLDOWN = 25000; // kutlamalar en fazla 25 sn'de bir (daha sık lider değişirse kısa yazı)
 
@@ -139,6 +173,7 @@
     setTeams(teams) {
       TEAMS = Object.fromEntries(teams.map((t) => [t.id, t]));
       teamOrder = teams.map((t) => t.id);
+      TOP_N = Math.min(T.topN, teams.length);
     },
     setState(s) {
       const order = s.teams.slice(0, TOP_N).filter((t) => t.points > 0).map((t) => t.id);
@@ -181,10 +216,10 @@
         bounceTeam(e.team);
         break;
       case 'join':
-        toast(`${e.user.name} ${team(e.team).name} taraftarı oldu!`, e.team);
+        toast(T.joinToast(e.user.name, team(e.team).name), e.team);
         break;
       case 'transfer':
-        toast(`🔁 ${e.user.name} transfer: ${team(e.from).short} → ${team(e.team).short}`, e.team);
+        toast(T.transferToast(e.user.name, team(e.from).short, team(e.team).short), e.team);
         break;
       case 'follow':
         toast(`➕ ${e.user.name} takip etti • ${team(e.team).short} +${fmt(e.points)}`, e.team);
@@ -206,7 +241,7 @@
         break;
       case 'roundStart':
         columns.clear();
-        toast('🟢 Yeni tur başladı! Takımını yaz, sahaya çık!', null);
+        toast(T.roundStart, null);
         break;
       default:
     }
@@ -228,7 +263,9 @@
 
   function shootBall(teamId, points) {
     const left = Math.random() < 0.5;
-    const gx = RING.cx + (left ? -1 : 1) * (PITCH.w / 2 - 10);
+    const gx = T.arena === 'stage'
+      ? RING.cx + (Math.random() * 300 - 150)
+      : RING.cx + (left ? -1 : 1) * (PITCH.w / 2 - 10);
     ball = { x: RING.cx, y: RING.cy, t: 0, from: { x: RING.cx, y: RING.cy }, to: { x: gx, y: RING.cy + (Math.random() * 40 - 20) }, team: teamId };
     if (points >= 500) goalText = { team: teamId, start: performance.now() + 450, big: points >= 5000 };
   }
@@ -255,7 +292,7 @@
       return;
     }
     lastCelebAt = now;
-    const cfg = CELEB[teamId] || DEFAULT_CELEB;
+    const cfg = T.celebrations[teamId] || T.defaultCelebration;
     celeb = { team: teamId, cfg, start: now, dur: CELEB_DUR, pulses: 0, bolts: [], fired: 0 };
     flash = null;
     if (cfg.kind === 'roar') shakeUntil = now + 1100;
@@ -392,6 +429,44 @@
     ctx.stroke();
   }
 
+  function starPath(x, y, R, points = 10, inner = 0.45) {
+    ctx.beginPath();
+    for (let i = 0; i < points; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / (points / 2);
+      const r = i % 2 ? R * inner : R;
+      ctx[i ? 'lineTo' : 'moveTo'](x + r * Math.cos(a), y + r * Math.sin(a));
+    }
+    ctx.closePath();
+  }
+
+  // Manifest Ligi: forma yerine üyenin parlak rozeti (harf + yıldız)
+  function idolBadge(t, cx, top, w) {
+    const r = w * 0.46;
+    const y = top + w * 0.5;
+    ctx.save();
+    ctx.shadowColor = t.colors[0];
+    ctx.shadowBlur = 22;
+    const g = ctx.createRadialGradient(cx - r * 0.3, y - r * 0.35, r * 0.1, cx, y, r);
+    g.addColorStop(0, t.colors[1]);
+    g.addColorStop(0.45, t.colors[0]);
+    g.addColorStop(1, shadeColor(t.colors[0], -0.4));
+    ctx.beginPath(); ctx.arc(cx, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.restore();
+    ctx.lineWidth = Math.max(3, w * 0.045);
+    ctx.strokeStyle = '#fff';
+    ctx.beginPath(); ctx.arc(cx, y, r, 0, Math.PI * 2); ctx.stroke();
+    text(t.code, cx, y + w * 0.03, { size: w * 0.5, stroke: Math.max(5, w * 0.07), strokeColor: shadeColor(t.colors[0], -0.55) });
+    starPath(cx + r * 0.78, y - r * 0.78, w * 0.16);
+    ctx.fillStyle = '#fff6b0'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#b8860b'; ctx.stroke();
+  }
+
+  function drawIcon(t, cx, top, w) {
+    if (T.icon === 'idol') idolBadge(t, cx, top, w);
+    else jersey(t, cx, top, w);
+  }
+
   // Kaptan pazıbandı: sarı daire içinde "C"
   function armband(x, y, r) {
     ctx.beginPath();
@@ -415,18 +490,18 @@
     if (TRANSPARENT) { ctx.clearRect(0, 0, W, H); return; }
     const g = ctx.createLinearGradient(0, 0, 0, H);
     const mid = (CORE_Y + L.base) / H;
-    g.addColorStop(0, '#050d1d');
-    g.addColorStop(clamp(mid - 0.02, 0, 1), '#0c2a3f');
-    g.addColorStop(clamp(mid + 0.03, 0, 1), '#0e3b2a');
-    g.addColorStop(1, '#04140d');
+    g.addColorStop(0, T.bg[0]);
+    g.addColorStop(clamp(mid - 0.02, 0, 1), T.bg[1]);
+    g.addColorStop(clamp(mid + 0.03, 0, 1), T.bg[2]);
+    g.addColorStop(1, T.bg[3]);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
     const ly = CORE_Y + 60;
     for (const side of [-1, 1]) {
       const x = side < 0 ? 40 : W - 40;
       const lg = ctx.createRadialGradient(x, ly, 10, x, ly, 800);
-      lg.addColorStop(0, 'rgba(255,255,230,.18)');
-      lg.addColorStop(1, 'rgba(255,255,230,0)');
+      lg.addColorStop(0, T.light);
+      lg.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = lg;
       ctx.beginPath();
       ctx.moveTo(x, ly);
@@ -436,15 +511,15 @@
       ctx.fill();
     }
     // Üst kenar süsü (kapanabilir bölge, önemli bilgi yok)
-    if (CORE_Y > 120) text('⚽  TARAFTAR LİGİ  ⚽', W / 2, CORE_Y * 0.55, { size: 40, color: 'rgba(255,255,255,.12)' });
+    if (CORE_Y > 120) text(`${T.ball}  ${T.title}  ${T.ball}`, W / 2, CORE_Y * 0.55, { size: 40, color: 'rgba(255,255,255,.12)' });
   }
 
   // ---------- çekirdek: başlık ----------
   function drawHeader() {
     const { y, h } = L.header;
     const g = ctx.createLinearGradient(0, 0, W, 0);
-    g.addColorStop(0, 'rgba(200,16,46,.95)');
-    g.addColorStop(1, 'rgba(120,8,28,.95)');
+    g.addColorStop(0, T.headerColors[0]);
+    g.addColorStop(1, T.headerColors[1]);
     rr(20, y, W - 40, h, 26);
     ctx.fillStyle = g;
     ctx.fill();
@@ -452,15 +527,22 @@
     ctx.strokeStyle = 'rgba(255,255,255,.25)';
     ctx.stroke();
     const cy = y + h / 2;
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(72, cy, 30, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#b10e28';
-    ctx.beginPath(); ctx.arc(81, cy, 24, 0, Math.PI * 2); ctx.fill();
-    text('⚽', 74, cy + 2, { size: 30 });
-    text('TARAFTAR LİGİ', 118, cy - 16, { size: 48, align: 'left', stroke: 8 });
+    if (T.logo === 'star') {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(72, cy, 32, 0, Math.PI * 2); ctx.fill();
+      starPath(72, cy, 24, 10);
+      ctx.fillStyle = '#c2185b'; ctx.fill();
+    } else {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(72, cy, 30, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#b10e28';
+      ctx.beginPath(); ctx.arc(81, cy, 24, 0, Math.PI * 2); ctx.fill();
+      text('⚽', 74, cy + 2, { size: 30 });
+    }
+    text(T.title, 118, cy - 16, { size: 48, align: 'left', stroke: 8, max: W - 300 });
     const round = state?.round?.number ?? 1;
     const fanTotal = state ? state.teams.reduce((s, t) => s + t.fans, 0) : 0;
-    text(`TUR ${round}  •  ${fmt(fanTotal)} taraftar sahada`, 120, cy + 26, { size: 24, weight: 600, align: 'left', color: '#ffe3e8' });
+    text(`TUR ${round}  •  ${fmt(fanTotal)} ${T.fansLabel}`, 120, cy + 26, { size: 24, weight: 600, align: 'left', color: '#ffe3e8' });
 
     // tur sayacı
     const cx = W - 76;
@@ -500,8 +582,8 @@
     if (!state) return;
     const top = state.teams.slice(0, TOP_N);
     const leaderPts = Math.max(1, top[0]?.points || 0);
-    const colW = 104;
-    const gap = (W - 72 - TOP_N * colW) / (TOP_N - 1);
+    const colW = TOP_N >= 8 ? 104 : Math.min(150, (W - 72 - (TOP_N - 1) * 24) / TOP_N);
+    const gap = TOP_N > 1 ? (W - 72 - TOP_N * colW) / (TOP_N - 1) : 0;
     const k = 1 - Math.pow(0.002, dt / 1000);
 
     const visible = new Set(top.map((t) => t.id));
@@ -542,7 +624,7 @@
       // forma + puan + taç
       const jw = 84 + pulse * 12;
       const jy = yTop - jw * 0.98 + 8 + Math.sin(now / 300 + i) * 2;
-      jersey(tm, c.x, jy, jw);
+      drawIcon(tm, c.x, jy, jw);
       text(fmt(c.pts), c.x, jy - 18, { size: 28, stroke: 7, max: colW + gap - 4 });
       if (i === 0 && t.points > 0) text('👑', c.x, jy - 52 + Math.sin(now / 250) * 3, { size: 40 });
 
@@ -596,18 +678,7 @@
     ctx.restore();
   }
 
-  // ---------- çekirdek: stadyum ----------
-  function drawStadium(now, dt) {
-    const { cx, cy } = RING;
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, 528, 198, 0, 0, Math.PI * 2);
-    const sg = ctx.createRadialGradient(cx, cy, 150, cx, cy, 540);
-    sg.addColorStop(0, '#24313f'); sg.addColorStop(1, '#0f1720');
-    ctx.fillStyle = sg; ctx.fill();
-    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.stroke();
-    ctx.restore();
-
+  function drawPitch(cx, cy) {
     const pw = PITCH.w;
     const ph = PITCH.h;
     const px = cx - pw / 2;
@@ -631,6 +702,74 @@
     ctx.fillRect(px - 4, cy - 26, 12, 52);
     ctx.fillRect(px + pw - 8, cy - 26, 12, 52);
 
+  }
+
+  // Manifest Ligi: konser sahnesi (ışıklı zemin + sallanan spotlar + mikrofon)
+  function drawStageFloor(now, cx, cy) {
+    const pw = PITCH.w;
+    const ph = PITCH.h;
+    const px = cx - pw / 2;
+    const py = cy - ph / 2;
+    // spot ışıkları (sahnenin üstünden)
+    const spots = ['rgba(255,63,164,.22)', 'rgba(0,184,217,.2)', 'rgba(123,47,247,.22)', 'rgba(255,214,0,.16)'];
+    spots.forEach((c, i) => {
+      const sx = px + (i + 0.5) * (pw / spots.length);
+      const sw = Math.sin(now / 900 + i * 1.7) * 90;
+      ctx.beginPath();
+      ctx.moveTo(sx, py - 150);
+      ctx.lineTo(sx + sw - 70, py + ph);
+      ctx.lineTo(sx + sw + 70, py + ph);
+      ctx.closePath();
+      ctx.fillStyle = c;
+      ctx.fill();
+    });
+    // sahne zemini
+    ctx.save();
+    rr(px, py, pw, ph, 18);
+    const g = ctx.createLinearGradient(0, py, 0, py + ph);
+    g.addColorStop(0, '#3a1466');
+    g.addColorStop(1, '#16062e');
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.clip();
+    // ışıklı kareler
+    const cols = 12;
+    const rows = 4;
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        const on = (Math.sin(now / 300 + i * 0.9 + j * 1.3) + 1) / 2;
+        ctx.fillStyle = `rgba(255,${120 + j * 30},${220 - i * 8},${0.06 + on * 0.16})`;
+        ctx.fillRect(px + (i * pw) / cols + 2, py + (j * ph) / rows + 2, pw / cols - 4, ph / rows - 4);
+      }
+    }
+    ctx.restore();
+    rr(px, py, pw, ph, 18);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255,255,255,.55)';
+    ctx.stroke();
+    // ön kenar ışık şeridi
+    const edge = ctx.createLinearGradient(px, 0, px + pw, 0);
+    edge.addColorStop(0, '#ff3fa4'); edge.addColorStop(0.5, '#ffd400'); edge.addColorStop(1, '#00b8d9');
+    ctx.fillStyle = edge;
+    ctx.fillRect(px + 10, py + ph - 8, pw - 20, 5);
+    text('🎤', cx, cy - 4, { size: 54 });
+  }
+
+  // ---------- çekirdek: stadyum ----------
+  function drawStadium(now, dt) {
+    const { cx, cy } = RING;
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 528, 198, 0, 0, Math.PI * 2);
+    const sg = ctx.createRadialGradient(cx, cy, 150, cx, cy, 540);
+    sg.addColorStop(0, T.stand[0]); sg.addColorStop(1, T.stand[1]);
+    ctx.fillStyle = sg; ctx.fill();
+    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.stroke();
+    ctx.restore();
+
+    if (T.arena === 'stage') drawStageFloor(now, cx, cy);
+    else drawPitch(cx, cy);
+
     // top
     if (ball.t < 1) {
       ball.t = Math.min(1, ball.t + dt / 650);
@@ -640,9 +779,11 @@
       if (ball.t >= 1) setTimeout(() => { ball = { x: cx, y: cy, t: 1 }; }, 700);
     }
     const bs = 16 + (ball.t < 1 ? Math.sin(ball.t * Math.PI) * 9 : 0);
-    ctx.fillStyle = 'rgba(0,0,0,.3)';
-    ctx.beginPath(); ctx.ellipse(ball.x, (ball.to?.y ?? cy) + 16, bs, bs * 0.35, 0, 0, Math.PI * 2); ctx.fill();
-    text('⚽', ball.x, ball.y, { size: bs * 2.1 });
+    if (T.arena !== 'stage' || ball.t < 1) {
+      ctx.fillStyle = 'rgba(0,0,0,.3)';
+      ctx.beginPath(); ctx.ellipse(ball.x, (ball.to?.y ?? cy) + 16, bs, bs * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+      text(T.ball, ball.x, ball.y, { size: bs * 2.1 });
+    }
 
     // taraftarlar (horon kutlamasında o takımın taraftarları sahaya iner, el ele oynar)
     const k = 1 - Math.pow(0.01, dt / 1000);
@@ -710,7 +851,7 @@
     if (!n) {
       rr(cx - 280, cy - 36, 560, 72, 20);
       ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
-      text('Takımını yaz, sahaya ilk sen çık! 👇', cx, cy, { size: 30 });
+      text(T.emptyLine, cx, cy, { size: 30, max: 540 });
     }
 
     if (goalText && now > goalText.start) {
@@ -724,7 +865,7 @@
         const s = 0.6 + ease(Math.min(1, p * 3)) * (goalText.big ? 0.65 : 0.4);
         ctx.scale(s, s);
         const c2 = tm.colors[1];
-        text(goalText.big ? 'GOOOOL!!' : 'GOL!', 0, 0, { size: 120, stroke: 16, color: c2 === '#FFFFFF' || c2 === '#111111' ? '#ffd400' : c2, strokeColor: tm.colors[0] });
+        text(goalText.big ? T.goal[1] : T.goal[0], 0, 0, { size: 120, stroke: 16, color: c2 === '#FFFFFF' || c2 === '#111111' ? '#ffd400' : c2, strokeColor: tm.colors[0] });
         ctx.restore();
       }
     }
@@ -846,7 +987,7 @@
       });
     }
 
-    titleBand(tm, cfg.title, `${upper(tm.name)} ZİRVEDE`, p);
+    titleBand(tm, cfg.title, T.leaderSub(upper(tm.name)), p);
   }
 
   function drawEmojiParts(dt) {
@@ -915,7 +1056,7 @@
     avatar(e.user, -320, 0, 54, b.kind === 'need' ? { colors: ['#333', '#ffd400'] } : tm);
     if (b.kind === 'captain') {
       armband(-280, -40, 18);
-      text('🎖️ YENİ KAPTAN!', -238, -44, { size: 36, align: 'left', color: '#111' });
+      text(T.captainCard, -238, -44, { size: 36, align: 'left', color: '#111', max: 560 });
       text(e.user.name, -238, 4, { size: 40, align: 'left', stroke: 7, max: 520 });
       text(`${tm.name} • ${fmt(e.points)} puan`, -238, 50, { size: 28, weight: 700, align: 'left', color: '#3a2a00', max: 520 });
       badge(tm, 330, 0, 44);
@@ -929,7 +1070,7 @@
         badge(tm, 330, 38, 40);
       } else {
         text(`${e.gift} gönderdi • ${fmt(e.points)} puan bekliyor!`, -240, 6, { size: 30, weight: 700, align: 'left', stroke: 6, max: 620 });
-        text('👇 Takımını yaz, puanın takımına gitsin!', -240, 50, { size: 32, align: 'left', stroke: 7, color: '#ffd400', max: 620 });
+        text(T.needLine, -240, 50, { size: 32, align: 'left', stroke: 7, color: '#ffd400', max: 620 });
       }
     }
     ctx.restore();
@@ -969,8 +1110,8 @@
   function drawInfo() {
     const { y, h } = L.info;
     rr(20, y, W - 40, h, 26);
-    ctx.fillStyle = 'rgba(255,212,0,.96)'; ctx.fill();
-    text('Takımının ADINI ya da PLAKASINI yaz → TARAFTAR OL!', W / 2, y + 30, { size: 34, color: '#111', max: W - 80 });
+    ctx.fillStyle = T.infoColor; ctx.fill();
+    text(T.instruction, W / 2, y + 30, { size: 34, color: '#111', max: W - 80 });
     // Puan satırı: emoji yok (her telefonda farklı genişlikte çiziliyordu); simgeler elle çizilir,
     // her bilgi kendi üçte birlik bölümünde ortalanır, taşamaz.
     const r = state?.rules || { pointsPerCoin: 100, pointsPerLike: 1, pointsPerFollow: 50 };
@@ -990,7 +1131,7 @@
       if (i) { ctx.fillStyle = 'rgba(58,42,0,.35)'; ctx.fillRect(40 + colW * i - 1, y + 56, 2, 26); }
     });
     // Kaptan satırı: emoji yerine sütunlardaki sarı "C" bandı (her telefonda aynı görünür)
-    const msg = 'En çok hediye atan, takımının KAPTANI olur!';
+    const msg = T.captainLine;
     ctx.font = `800 26px ${FONT}`;
     const tw = ctx.measureText(msg).width;
     const total = tw + 40;
@@ -1005,7 +1146,7 @@
   function drawKings() {
     const { y, h } = L.kings;
     const pw = (W - 60) / 2;
-    for (const [i, title] of [[0, '👑 TURUN KRALLARI'], [1, '🏆 KUPALAR']]) {
+    for (const [i, title] of [[0, T.kingsTitle], [1, T.trophiesTitle]]) {
       const x = 20 + i * (pw + 20);
       rr(x, y, pw, h, 22);
       ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
@@ -1042,7 +1183,7 @@
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
     if (!state) return;
     const rest = state.teams.slice(TOP_N).filter((t) => t.points > 0);
-    const all = `Süper Lig'den Anadolu'ya ${teamOrder.length} takım: ${teamOrder.map((id) => team(id).name).join(' • ')}`;
+    const all = T.tickerAll(teamOrder.map((id) => team(id).name));
     let msg = rest.length
       ? `${rest.slice(0, 25).map((t, i) => `${TOP_N + i + 1}. ${team(t.id).name} ${fmt(t.points)}`).join('   ⚽   ')}${rest.length < 4 ? `      ${all}` : ''}`
       : all;
@@ -1102,16 +1243,16 @@
     }
     ctx.restore();
     if (Math.random() < 0.5) confetti(Math.random() * W, -20, tm.colors.concat(['#ffd400']), 3);
-    text(`TUR ${c.round} ŞAMPİYONU`, W / 2, 40, { size: 60, stroke: 12, color: '#ffd400' });
+    text(T.championTitle(c.round), W / 2, 40, { size: 60, stroke: 12, color: '#ffd400' });
     const s = 1 + Math.sin(now / 300) * 0.04;
-    ctx.save(); ctx.translate(W / 2, 90); ctx.scale(s, s); jersey(tm, 0, 0, 300); ctx.restore();
+    ctx.save(); ctx.translate(W / 2, 90); ctx.scale(s, s); drawIcon(tm, 0, 0, 300); ctx.restore();
     text('🏆', W / 2 - 230, 250, { size: 110 });
     text('🏆', W / 2 + 230, 250, { size: 110 });
     text(upper(tm.name), W / 2, 470, { size: 88, stroke: 14, max: W - 80 });
     text(`${fmt(c.points)} puan  •  ${c.trophies}. şampiyonluk`, W / 2, 550, { size: 42, stroke: 8, color: '#ffd400' });
     if (c.runnerUp) text(`2. ${team(c.runnerUp.team).name} — ${fmt(c.runnerUp.points)}`, W / 2, 610, { size: 32, weight: 700, stroke: 6, color: '#ddd' });
     if (c.mvps?.length) {
-      text('Şampiyonluğu getiren krallar', W / 2, 690, { size: 34, stroke: 6 });
+      text(T.championMvps, W / 2, 690, { size: 34, stroke: 6 });
       c.mvps.slice(0, 3).forEach((m, i) => {
         const x = W / 2 + (i - (Math.min(3, c.mvps.length) - 1) / 2) * 300;
         avatar(m, x, 790, 56, team(m.team));

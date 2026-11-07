@@ -137,7 +137,20 @@
 <script>window.TARAFTAR_AUDIO_MANUAL = true;</script>
 <script src="audio.js"></script>
 <script type="module">
-  import { loadConfig, saveConfig, channel } from './config.js';
+  import { loadConfig, saveConfig, channel, LIG_ID } from './config.js';
+  // Hangi ligin ayarları? (?lig=manifest -> Manifest Ligi)
+  const LEAGUE = LIG_ID === 'manifest'
+    ? { name: 'Manifest Ligi', icon: '⭐', page: 'manifest/', sample: 'hilal', word: 'üye', join: '💬 Favorini yaz' }
+    : { name: 'Taraftar Ligi', icon: '⚽', page: './', sample: 'trabzon', word: 'takım', join: '💬 Takımını yaz' };
+  document.title = `${LEAGUE.name} Ayarlar`;
+  document.querySelector('h1').textContent = `${LEAGUE.icon} ${LEAGUE.name} — Ayarlar`;
+  document.getElementById('tteam').value = LEAGUE.sample;
+  document.getElementById('tteam').placeholder = LEAGUE.word;
+  document.querySelector('[data-sim=\'{"kind":"chat"}\']').textContent = LEAGUE.join;
+  if (LIG_ID === 'manifest') {
+    document.querySelector('link[rel=icon]').href = 'manifest/icon.svg';
+    document.querySelector('link[rel=apple-touch-icon]').href = 'manifest/apple-touch-icon.png';
+  }
   import { relayBase, sameOriginRelay } from './relay-client.js';
   const $ = (id) => document.getElementById(id);
   const RULES = ['roundMinutes', 'pointsPerCoin', 'pointsPerLike', 'pointsPerFollow', 'pointsPerShare', 'pointsPerJoin'];
@@ -230,8 +243,8 @@
     bc.postMessage({ type: 'reload' });
     // Ana ekran uygulamasında (iPhone/iPad) yeni pencere açılamaz, aynı ekranda devam et
     const standalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
-    if (standalone) location.href = './';
-    else window.open('./', 'taraftar-yayin');
+    if (standalone) location.href = LEAGUE.page;
+    else window.open(LEAGUE.page, `${LIG_ID}-yayin`);
   };
 
   document.querySelectorAll('[data-sim]').forEach((b) => {

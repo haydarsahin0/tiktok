@@ -1,6 +1,8 @@
 // Tablet / GitHub Pages modunda ayarlar tarayıcının hafızasında (localStorage) durur.
-const KEY = 'taraftar.config';
-const SAVE_KEY = 'taraftar.save';
+// Her lig (taraftar, manifest...) kendi ayarlarını ve kayıtlarını ayrı tutar.
+export const LIG_ID = globalThis.LIG?.id || new URLSearchParams(location.search).get('lig') || 'taraftar';
+const KEY = `${LIG_ID}.config`;
+const SAVE_KEY = `${LIG_ID}.save`;
 
 export const DEFAULT_CONFIG = {
   username: '',
@@ -43,5 +45,5 @@ export const browserStorage = {
 
 // Yayın ekranı ile ayarlar sayfası arasında haberleşme (aynı tarayıcıda iki sekme)
 export function channel() {
-  return 'BroadcastChannel' in window ? new BroadcastChannel('taraftar-ligi') : { postMessage() {}, onmessage: null };
+  return 'BroadcastChannel' in window ? new BroadcastChannel(`${LIG_ID}-ligi`) : { postMessage() {}, onmessage: null };
 }

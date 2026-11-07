@@ -7,7 +7,7 @@ export function relayBase(url) {
 }
 
 export function connectRelay({ url, username, key, onChat, onGift, onLike, onSocial, onStatus, onDebug }) {
-  const base = relayBase(url) || location.origin;
+  const base = relayBase(url) || new URL('.', import.meta.url).href.replace(/\/$/, '');
   const wsBase = base.replace(/^http/, 'ws');
   let ws = null;
   let stopped = false;
@@ -27,6 +27,7 @@ export function connectRelay({ url, username, key, onChat, onGift, onLike, onSoc
   function open() {
     if (stopped) return;
     const params = new URLSearchParams({ user: username.replace(/^@/, '') });
+    params.set('lig', window.LIG?.id || 'taraftar'); // sadece "test" kullanıcısında sahte izleyiciler için
     if (key) params.set('key', key);
     onStatus({ state: 'connecting', message: 'Aktarıcıya bağlanıyor (uyuyorsa ~1 dk sürebilir)' });
     wake();
@@ -67,7 +68,7 @@ export function connectRelay({ url, username, key, onChat, onGift, onLike, onSoc
 // Bu sayfa bir aktarıcı sunucusundan mı açıldı? (Render adresini doğrudan açınca)
 export async function sameOriginRelay() {
   try {
-    const r = await fetch('api/ping', { cache: 'no-store' });
+    const r = await fetch(new URL('api/ping', import.meta.url), { cache: 'no-store' });
     if (!r.ok) return false;
     const j = await r.json();
     return Boolean(j.relay);

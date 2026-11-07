@@ -59,6 +59,20 @@ Yayın ekranındayken ayarlara dönmek için **sol üst köşeye 3 kez hızlıca
 **İstersen Euler Stream ile:** Ayarlar sayfasında "Euler Stream" seçip ücretli API anahtarını yazabilirsin. Bu durumda Render gerekmez, oyun GitHub Pages'ten de açılabilir: `https://haydarsahin0.github.io/tiktok/`
 (GitHub → Settings → Pages → *Deploy from a branch* → `gh-pages` / root.)
 
+## ⭐ Manifest Ligi (ikinci oyun)
+
+Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya ve Sueda** yarışır, hayranlar hediyeleriyle favorilerini yükseltir.
+
+- Yayın ekranı: **`https://taraftar-ligi.onrender.com/manifest/`**
+- Ayarlar: **`https://taraftar-ligi.onrender.com/ayarlar.html?lig=manifest`** (ya da yayın ekranında sol üst köşeye 3 kez dokun)
+- İzleyici yoruma üyenin adını yazar (`hilal`, `Zoktay`, `minaaa`, `Lidya'ya`...) ve fanı olur. Hediye, beğeni ve takip puanları futbol ligiyle aynıdır.
+- Stadyum yerine konser sahnesi, formalar yerine üyelerin harfli rozetleri, kaptan yerine **fan lideri** var. Müzik daha hareketli bir pop altyapı.
+- Kutlamalar: Hilal'de **hilal** yağar, Zoktay'da **şimşek** çakar, Mina'da **elmas**, Esin'de **çiçek** yağar, Lidya'da **kelebekler** uçar, Sueda'da dev **"SUEDA!"** tezahüratı.
+- Ayarları, puanları ve kupaları futbol liginden **tamamen ayrıdır**. Aynı tablette iki lig birbirini etkilemez.
+- Aynı Render sunucusunu ve aynı ücretsiz aktarıcıyı kullanır, ek kurulum gerekmez. Kullanıcı adına `test` yazarsan sahte fanlar üye adlarını yazar.
+- Ana ekrana eklerken kendi simgesi (pembe-mor yıldız) çıkar. Hayran yapımı bir oyundur; üyelerin fotoğrafı kullanılmaz, renkler oyun için seçilmiştir.
+- Üye eklemek, renk ya da yazı değiştirmek: `public/core/manifest.js` (üyeler, renkler) ve `public/manifest/theme.js` (yazılar, kutlamalar).
+
 ## Diğer yollar
 
 Yol 1: Android telefonda Termux (ücretsiz, telefon hem oyunu hem bağlantıyı çalıştırır). Yol 2: kiralık sunucu, TikTok'a doğrudan yayın gönderir (cihaz gerekmez, yayın anahtarı ister).
@@ -231,7 +245,9 @@ Ekranda kulüp logoları kullanılmıyor (telif/marka sorunu olmasın diye); tak
 ## Dosyalar
 
 ```
-public/core/     oyun mantığı ve takım listesi (tarayıcı ve sunucu ortak kullanır)
+public/core/     oyun mantığı, futbol (teams.js) ve Manifest (manifest.js) kadroları, isim tanıma (roster.js)
+public/manifest/ Manifest Ligi sayfası ve teması
+public/page.js  yayın sayfalarının ortak davranışı (tam ekran, ekran kapanmasın, gizli ayarlar)
 public/local.js sunucusuz mod (GitHub Pages / tablet)
 public/euler.js tarayıcıdan TikTok bağlantısı (Euler Stream)
 public/relay-client.js  tarayıcının ücretsiz aktarıcıya bağlantısı

@@ -32,6 +32,7 @@ window.LIG = {
     championTitle: (n) => `TUR ${n} YILDIZI`,
     championMvps: 'Zaferi getiren fanlar',
     leaderSub: (name) => `${name} ZİRVEDE`,
+    nextRound: (sec) => `Yeni tur ${sec} sn içinde başlıyor — favorini yaz, hazır ol!`,
     topN: 6,
     celebrations: {
       hilal: { kind: 'rain', emoji: '🌙', title: 'HİLAL PARLIYOR!', sound: 'sparkle' },

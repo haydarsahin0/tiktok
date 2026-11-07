@@ -7,10 +7,10 @@ import { makeRoster } from './roster.js';
 export const MEMBERS = [
   { id: 'hilal', name: 'Hilal', short: 'HİLAL', code: 'H', colors: ['#ff3fa4', '#ffd1ea'], aliases: ['hilal', 'hilo'], photo: 'img/hilal.jpg' },
   { id: 'zoktay', name: 'Zoktay', short: 'ZOKTAY', code: 'Z', colors: ['#7b2ff7', '#d9c4ff'], aliases: ['zoktay'], photo: 'img/zoktay.jpg' },
-  { id: 'mina', name: 'Mina', short: 'MİNA', code: 'M', colors: ['#00b8d9', '#c9f6ff'], aliases: ['mina'] },
-  { id: 'esin', name: 'Esin', short: 'ESİN', code: 'E', colors: ['#ff8a00', '#ffe2b8'], aliases: ['esin'] },
+  { id: 'mina', name: 'Mina', short: 'MİNA', code: 'M', colors: ['#00b8d9', '#c9f6ff'], aliases: ['mina'], photo: 'img/mina.jpg' },
+  { id: 'esin', name: 'Esin', short: 'ESİN', code: 'E', colors: ['#ff8a00', '#ffe2b8'], aliases: ['esin'], photo: 'img/esin.jpg' },
   { id: 'lidya', name: 'Lidya', short: 'LİDYA', code: 'L', colors: ['#e0115f', '#ffc2d8'], aliases: ['lidya'], photo: 'img/lidya.jpg' },
-  { id: 'sueda', name: 'Sueda', short: 'SUEDA', code: 'S', colors: ['#16b364', '#c8f7dc'], aliases: ['sueda'] },
+  { id: 'sueda', name: 'Sueda', short: 'SUEDA', code: 'S', colors: ['#16b364', '#c8f7dc'], aliases: ['sueda'], photo: 'img/sueda.jpg' },
 ];
 
 export const MANIFEST = makeRoster(MEMBERS);

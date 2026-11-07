@@ -124,6 +124,7 @@
   <section>
     <h2>Tabletten yayına çıkma</h2>
     <ol>
+      <li>Yayın ekranındayken ayarlara dönmek için <b>sol üst köşeye 3 kez hızlıca dokun</b> (ekranda buton görünmez).</li>
       <li>Ayarları kaydet, yayın ekranı açılır. Paylaş menüsünden <b>Ana Ekrana Ekle</b> de (tam ekran uygulama gibi açılır).</li>
       <li>TikTok uygulaması → <b>Canlı</b> → <b>Mobil oyun / Ekran paylaşımı</b> → yayını başlat.</li>
       <li>Taraftar Ligi uygulamasına geç. Ekran yayın boyunca kapanmaz.</li>
@@ -226,7 +227,10 @@
     }
     saveConfig(next);
     bc.postMessage({ type: 'reload' });
-    window.open('./', 'taraftar-yayin');
+    // Ana ekran uygulamasında (iPhone/iPad) yeni pencere açılamaz, aynı ekranda devam et
+    const standalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
+    if (standalone) location.href = './';
+    else window.open('./', 'taraftar-yayin');
   };
 
   document.querySelectorAll('[data-sim]').forEach((b) => {

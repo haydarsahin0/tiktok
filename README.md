@@ -45,6 +45,10 @@ Notlar:
 - Render'ın ücretsiz sunucusu 15 dakika kimse kullanmayınca uyur. İlk açılışta uyanması ~1 dakika sürebilir. Yayın ekranı açıkken sunucuyu 4 dakikada bir dürterek uyanık tutar.
 - Kullanıcı adına `test` yazarsan aktarıcı sahte izleyiciler gönderir. Kurulumu yayın açmadan denemek için kullanabilirsin.
 - Ayarlar sayfasında test butonları da var (hediye at, turu bitir…). Yayın ekranı başka sekmede açıkken çalışırlar.
+
+**Tam ekran:** Yayın ekranına dokununca adres çubuğu gizlenir (Android, iPad). iPhone Safari buna izin vermez; iPhone'da **Paylaş → Ana Ekrana Ekle** yapıp ana ekrandaki simgeden aç, o zaman adres çubuğu hiç çıkmaz.
+Ana ekran uygulaması kendi ayrı hafızasını kullanır, ayarları bir kez de orada gir.
+Yayın ekranındayken ayarlara dönmek için **sol üst köşeye 3 kez hızlıca dokun** (ekranda buton görünmez).
 - Bağlantı sorunu olursa yayın ekranının adresine `?debug=1` ekle; gelen veriler ekranda görünür.
 
 **Render otomatik güncellenmiyorsa:** Render'ın GitHub uygulamasının bu depoya erişimi yoksa güncellemeler gelmez. İki çözüm:
@@ -180,7 +184,7 @@ pm2 save
 - Arka planda kısık, özgün bir enstrümantal müzik çalar. Tarayıcıda üretilir, hazır bir şarkı değildir; telif sorunu yoktur.
 - Hediye gelince yumuşak bir çan sesi çıkar. Büyük hediyelerde hafif bir tezahürat, lider değişince kısa bir boru sesi, takımlar sıralamada yükselince yumuşak bir "vınn" sesi duyulur. Efektler üst üste binmesin diye sınırlıdır; efekt çalarken müzik biraz kısılır.
 - Tablette Ayarlar → **Müzik ve sesler** bölümünden müzik ve efektler ayrı ayrı açılıp kapatılabilir, ses seviyeleri ayarlanabilir.
-- Tarayıcılar sesi ancak bir dokunuştan sonra açar. Yayın ekranında "Ses için ekrana dokun" yazısı çıkarsa bir kez dokun.
+- Tarayıcılar sesi ancak bir dokunuştan sonra açar. Yayın ekranında "Ses için ekrana dokun" yazısı çıkarsa bir kez dokun. TikTok'a geçip geri dönünce ses kendiliğinden devam eder; durursa bir kez dokun.
 - iPhone'da sessiz mod açıksa ses çıkmaz. Bilgisayarda/OBS'te sesi kapatmak için adrese `?sound=0` ekle.
 - Not: Kiralık sunucudan doğrudan yayın yolunda (Yol 2) şimdilik ses gönderilmiyor.
 

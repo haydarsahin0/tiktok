@@ -51,10 +51,10 @@
     raceTop: 110,
     base: 556, // sütunların zemini
     topLimit: 300, // en uzun sütunun tepesi
-    stadium: { cx: 540, cy: 812 },
-    toastY: 1036,
-    info: { y: 1060, h: 96 },
-    kings: { y: 1166, h: 94 },
+    stadium: { cx: 540, cy: 800 },
+    toastY: 1022,
+    info: { y: 1044, h: 126 },
+    kings: { y: 1178, h: 82 },
   };
   const RING = { cx: 540, cy: L.stadium.cy, rx: 466, ry: 158 };
   const PITCH = { w: 540, h: 172 };
@@ -939,9 +939,19 @@
     const { y, h } = L.info;
     rr(20, y, W - 40, h, 26);
     ctx.fillStyle = 'rgba(255,212,0,.96)'; ctx.fill();
-    text('💬 Takımının ADINI ya da PLAKASINI yaz → TARAFTAR OL!', W / 2, y + 32, { size: 34, color: '#111', max: W - 80 });
+    text('💬 Takımının ADINI ya da PLAKASINI yaz → TARAFTAR OL!', W / 2, y + 30, { size: 33, color: '#111', max: W - 80 });
     const r = state?.rules || { pointsPerCoin: 100, pointsPerLike: 1, pointsPerFollow: 50 };
-    text(`🎁 1 jeton = ${fmt(r.pointsPerCoin)} puan    ❤️ beğeni = ${fmt(r.pointsPerLike)} puan    🎖️ en çok veren KAPTAN olur`, W / 2, y + 72, { size: 25, weight: 700, color: '#3a2a00', max: W - 80 });
+    text(`🎁 1 jeton = ${fmt(r.pointsPerCoin)} puan    ❤️ beğeni = ${fmt(r.pointsPerLike)} puan    ➕ takip = ${fmt(r.pointsPerFollow)} puan`, W / 2, y + 68, { size: 26, weight: 700, color: '#3a2a00', max: W - 80 });
+    // Kaptan satırı: emoji yerine sütunlardaki sarı "C" bandı (her telefonda aynı görünür)
+    const msg = 'En çok hediye atan, takımının KAPTANI olur!';
+    ctx.font = `800 26px ${FONT}`;
+    const tw = ctx.measureText(msg).width;
+    const total = tw + 40;
+    const x0 = W / 2 - total / 2;
+    rr(x0 - 14, y + 86, total + 28, 34, 17);
+    ctx.fillStyle = 'rgba(122,30,0,.14)'; ctx.fill();
+    armband(x0 + 13, y + 103, 13);
+    text(msg, x0 + 40, y + 104, { size: 26, color: '#7a1e00', align: 'left' });
   }
 
   // Krallar ve kupalar: tek sıra, kompakt
@@ -952,28 +962,28 @@
       const x = 20 + i * (pw + 20);
       rr(x, y, pw, h, 22);
       ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
-      text(title, x + 18, y + 20, { size: 20, align: 'left', color: '#ffd400' });
+      text(title, x + 18, y + 18, { size: 19, align: 'left', color: '#ffd400' });
     }
     if (!state) return;
     const slot = (pw - 20) / 3;
     const mv = state.mvps.slice(0, 3);
-    if (!mv.length) text('İlk hediyeyi atan kral olur!', 20 + pw / 2, y + 60, { size: 21, weight: 600, color: '#ccd' });
+    if (!mv.length) text('İlk hediyeyi atan kral olur!', 20 + pw / 2, y + 54, { size: 21, weight: 600, color: '#ccd' });
     mv.forEach((m, i) => {
       const ex = 30 + i * slot;
       const tm = team(m.team);
-      avatar(m, ex + 18, y + 62, 16, tm);
-      text(m.name, ex + 42, y + 53, { size: 17, weight: 700, align: 'left', max: slot - 48 });
-      text(fmt(m.points), ex + 42, y + 74, { size: 16, weight: 700, align: 'left', color: '#9f9', max: slot - 48 });
+      avatar(m, ex + 18, y + 55, 16, tm);
+      text(m.name, ex + 42, y + 46, { size: 17, weight: 700, align: 'left', max: slot - 48 });
+      text(fmt(m.points), ex + 42, y + 66, { size: 16, weight: 700, align: 'left', color: '#9f9', max: slot - 48 });
     });
     const x2 = 40 + pw;
     const tr = state.trophies.slice(0, 3);
-    if (!tr.length) text('İlk kupa kimin olacak?', x2 + pw / 2, y + 60, { size: 21, weight: 600, color: '#ccd' });
+    if (!tr.length) text('İlk kupa kimin olacak?', x2 + pw / 2, y + 54, { size: 21, weight: 600, color: '#ccd' });
     tr.forEach((t, i) => {
       const ex = x2 + 10 + i * slot;
       const tm = team(t.team);
-      badge(tm, ex + 18, y + 62, 16);
-      text(tm.short, ex + 42, y + 53, { size: 17, weight: 700, align: 'left', max: slot - 48 });
-      text(`${t.count} 🏆`, ex + 42, y + 74, { size: 16, weight: 700, align: 'left', color: '#ffd400' });
+      badge(tm, ex + 18, y + 55, 16);
+      text(tm.short, ex + 42, y + 46, { size: 17, weight: 700, align: 'left', max: slot - 48 });
+      text(`${t.count} 🏆`, ex + 42, y + 66, { size: 16, weight: 700, align: 'left', color: '#ffd400' });
     });
   }
 

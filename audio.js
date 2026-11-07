@@ -12,6 +12,9 @@
   if (params.has('sfx')) cfg.sfx = params.get('sfx') !== '0';
   if (params.get('sound') === '0') { cfg.music = false; cfg.sfx = false; }
 
+  // iPhone/iPad: zil sessizdeyken de çalabilmesi için ses oturumu "oynatma" olmalı (Safari 16.4+)
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* yok */ }
+
   const BPM = 94;
   const EIGHTH = 60 / BPM / 2;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -53,6 +56,7 @@
     master.gain.value = 2.4; // ölçülü: müzik ≈ -28 LUFS (arka planda), efektler biraz önde
     master.connect(soft).connect(comp).connect(ctx.destination);
     out = comp;
+    ctx.onstatechange = () => hint();
 
     // Yankı (stadyum havası)
     const reverb = ctx.createConvolver();
@@ -409,14 +413,15 @@
       duckMusic(0.35, 5);
     },
     // Tarayıcılar sesi ancak bir dokunuştan sonra açar
-    unlock() {
+    unlock(fromGesture = false) {
       if (!cfg.music && !cfg.sfx) return;
       if (!init()) return;
+      if (fromGesture) gestureUnlock();
       const p = ctx.resume ? ctx.resume() : Promise.resolve();
       Promise.resolve(p).then(() => {
         if (cfg.music) startMusic();
         hint();
-      });
+      }).catch(() => {});
     },
     configure(next) {
       cfg = { ...cfg, ...next };
@@ -441,6 +446,38 @@
     get config() { return { ...cfg }; },
   };
 
+  // Dokunuş anında çağrılır: eski iOS'larda sesi açan sessiz tampon + sessiz modda da çalmayı
+  // sağlayan, döngüde çalan sessiz bir <audio> öğesi.
+  let htmlAudio = null;
+  function silentWav() {
+    const n = 4000; // 0.5 sn, 8 kHz, 8 bit sessizlik
+    const b = new Uint8Array(44 + n);
+    const w = (o, str) => { for (let i = 0; i < str.length; i++) b[o + i] = str.charCodeAt(i); };
+    const u32 = (o, v) => { b[o] = v & 255; b[o + 1] = (v >> 8) & 255; b[o + 2] = (v >> 16) & 255; b[o + 3] = (v >> 24) & 255; };
+    w(0, 'RIFF'); u32(4, 36 + n); w(8, 'WAVE'); w(12, 'fmt '); u32(16, 16);
+    b[20] = 1; b[22] = 1; u32(24, 8000); u32(28, 8000); b[32] = 1; b[34] = 8;
+    w(36, 'data'); u32(40, n); b.fill(128, 44);
+    let bin = ''; for (const x of b) bin += String.fromCharCode(x);
+    return `data:audio/wav;base64,${btoa(bin)}`;
+  }
+  function gestureUnlock() {
+    try {
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch { /* yok */ }
+    try {
+      if (!htmlAudio) {
+        htmlAudio = new Audio(silentWav());
+        htmlAudio.loop = true;
+        htmlAudio.setAttribute('playsinline', '');
+      }
+      if (htmlAudio.paused) htmlAudio.play().catch(() => {});
+    } catch { /* yok */ }
+  }
+
   function hint() {
     const el = document.getElementById('soundHint');
     if (!el) return;
@@ -452,10 +489,11 @@
   if (window.TARAFTAR_AUDIO_MANUAL) {
     api.preview = (on) => {
       if (!init()) return;
-      ctx.resume?.();
+      gestureUnlock();
+      ctx.resume?.().catch(() => {});
       if (on) { cfg.music = true; startMusic(); } else stopMusic();
     };
-    api.unlockSfx = () => { if (init()) ctx.resume?.(); };
+    api.unlockSfx = () => { if (init()) { gestureUnlock(); ctx.resume?.().catch(() => {}); } };
     return;
   }
   // Bazı ortamlar (OBS, bulut yayıncısı) dokunuş olmadan sesi açmaya izin verir
@@ -463,7 +501,15 @@
     api.unlock();
     setTimeout(hint, 1500);
   }
-  const onGesture = () => api.unlock();
-  addEventListener('pointerdown', onGesture);
-  addEventListener('keydown', onGesture);
+  // Dokunmatik ekranlarda tarayıcılar sesi "parmak kalkınca" (touchend/click) açmaya izin verir,
+  // parmağın değdiği an (pointerdown) sayılmaz. Hepsini dinliyoruz.
+  const onGesture = () => api.unlock(true);
+  for (const ev of ['touchend', 'pointerup', 'click', 'keydown']) addEventListener(ev, onGesture, { passive: true });
+  // TikTok'a geçip geri dönünce (iOS sesi "interrupted" yapar) kendini toparlasın
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && ctx) {
+      ctx.resume?.().catch(() => {});
+      setTimeout(hint, 800);
+    }
+  });
 })();

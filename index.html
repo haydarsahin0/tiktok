@@ -19,7 +19,7 @@
     body.transparent { background: transparent; }
     #stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
     canvas { height: 100vh; height: 100dvh; width: calc(100dvh * 9 / 16); max-width: 100vw; max-height: calc(100vw * 16 / 9); display: block; }
-    #tap { position: fixed; inset: 0; display: none; flex-direction: column; gap: 6px; align-items: center; justify-content: center; background: rgba(0,0,0,.55); color: #fff;
+    #tap { position: fixed; inset: 0; display: none; flex-direction: column; gap: 6px; align-items: center; justify-content: center; background: rgba(0,0,0,.86); color: #fff;
       font: 800 22px/1.4 "Baloo 2", system-ui, sans-serif; text-align: center; padding: 24px; z-index: 2; }
     #tap.show { display: flex; }
     #soundHint { position: fixed; left: 50%; bottom: 3%; transform: translateX(-50%); z-index: 3; background: rgba(0,0,0,.8); color: #fff;
@@ -30,25 +30,56 @@
 </head>
 <body>
   <div id="stage"><canvas id="c" width="1080" height="1920"></canvas></div>
-  <div id="tap"><div>📱 Tam ekran için dokun</div><small style="font-weight:600">Ekran yayın boyunca kapanmayacak</small>
+  <div id="tap"><div id="tapTitle">📱 Tam ekran için dokun</div><small id="tapText" style="font-weight:600">Adres çubuğu gizlenir, ekran yayın boyunca kapanmaz, müzik başlar</small>
     <a id="settings" href="ayarlar.html">⚙️ Ayarlar</a></div>
   <script>
-    // Telefon modu: dokununca tam ekran + ekranın kapanmasını engelle (Wake Lock)
+    // Yayın modu: dokununca tam ekran (adres çubuğu gizlenir), ekran kapanmaz, ses açılır
     (() => {
+      const de = document.documentElement;
+      const standalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
+      const canFullscreen = Boolean(de.requestFullscreen || de.webkitRequestFullscreen);
+      const isFullscreen = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
       const isTouch = matchMedia('(pointer: coarse)').matches;
       const tap = document.getElementById('tap');
       let lock = null;
+
       async function keepAwake() {
         try { if ('wakeLock' in navigator && !lock) { lock = await navigator.wakeLock.request('screen'); lock.onrelease = () => { lock = null; }; } } catch { /* desteklenmiyor */ }
       }
-      async function go() {
-        tap.classList.remove('show');
-        try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch { /* iPhone desteklemez */ }
-        keepAwake();
+      function enterFullscreen() {
+        const fn = de.requestFullscreen || de.webkitRequestFullscreen;
+        if (!fn || isFullscreen() || standalone) return;
+        try {
+          const r = fn.call(de, { navigationUI: 'hide' });
+          if (r && r.catch) r.catch(() => {});
+        } catch { /* izin verilmedi */ }
       }
-      if (isTouch && !matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) tap.classList.add('show');
+      function go() {
+        tap.classList.remove('show');
+        enterFullscreen();
+        keepAwake();
+        window.TaraftarAudio?.unlock(true);
+      }
+
+      // iPhone Safari tam ekrana izin vermez: tek yol "Ana Ekrana Ekle"
+      if (!canFullscreen && !standalone) {
+        document.getElementById('tapTitle').textContent = '📱 Adres çubuğunu gizlemek için';
+        document.getElementById('tapText').innerHTML = 'Safari\'de <b>Paylaş</b> ⬆️ → <b>Ana Ekrana Ekle</b>,<br>sonra ana ekrandaki <b>Taraftar Ligi</b> simgesinden aç.<br><br>Şimdilik devam etmek için dokun.';
+      }
+      if (isTouch && !standalone) tap.classList.add('show');
+
       document.getElementById('settings').addEventListener('click', (e) => e.stopPropagation());
       document.addEventListener('click', go);
+
+      // Gizli ayarlar kısayolu (yayında buton görünmesin): sol üst köşeye 3 kez hızlı dokun
+      let corner = [];
+      document.addEventListener('click', (e) => {
+        if (e.clientX > innerWidth * 0.25 || e.clientY > innerHeight * 0.15) return;
+        const now = Date.now();
+        corner = corner.filter((t) => now - t < 1500).concat(now);
+        if (corner.length >= 3) location.href = 'ayarlar.html';
+      });
+
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
       keepAwake();
     })();

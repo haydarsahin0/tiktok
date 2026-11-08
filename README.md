@@ -102,7 +102,7 @@ Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya v
 
 ## 🎬 Tanıtım videosu
 
-- Hazır video: `docs/taraftar-ligi-tanitim.mp4` (dikey 1080x1920, 27 sn, müzik ve efektli, TikTok ses seviyesi -14 LUFS)
+- Hazır video: `docs/taraftar-ligi-tanitim.mp4` (dikey 1080x1920, 27 sn, müzik ve efektli, TikTok ses seviyesi -14 LUFS). Kapanışta "İLK YAYIN BU AKŞAM 22:00" duyurusu var; başka gün paylaşılacaksa `promo/promo.html` içindeki bu yazıyı değiştirip yeniden üret.
 - Kaynak: `promo/promo.html` (sahneler, yazılar, animasyonlar ve ses tek dosyada). Tarayıcıda açınca önizleme olarak oynar.
 - Yeniden üretmek (yazı, saat vb. değiştirdikten sonra): `node promo/render.cjs` → `promo/out/taraftar-ligi-tanitim.mp4`
 

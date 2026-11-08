@@ -49,6 +49,11 @@ Notlar:
 **Tam ekran:** Yayın ekranına dokununca adres çubuğu gizlenir (Android, iPad). iPhone Safari buna izin vermez; iPhone'da **Paylaş → Ana Ekrana Ekle** yapıp ana ekrandaki simgeden aç, o zaman adres çubuğu hiç çıkmaz.
 Ana ekran uygulaması kendi ayrı hafızasını kullanır, ayarları bir kez de orada gir.
 Yayın ekranındayken ayarlara dönmek için **sol üst köşeye 3 kez hızlıca dokun** (ekranda buton görünmez).
+
+**Yayını bitirirken (izleyiciler ekranını görmesin):**
+1. **Sağ üst köşeye 3 kez hızlıca dokun** → "Bugünlük bu kadar! Takip et" kapanış kartı açılır (tekrar 3 dokunuş kapatır; mola için de kullanılabilir).
+2. Ekran paylaşımını telefondan durdur: iPhone'da sol üstteki kırmızı kayıt simgesi → **Durdur** (ya da Denetim Merkezi → kayıt → Yayını Durdur); Android'de bildirim panelindeki ekran paylaşımı bildirimi → **Durdur**.
+3. TikTok'a dön ve yayını bitir.
 - Bağlantı sorunu olursa yayın ekranının adresine `?debug=1` ekle; gelen veriler ekranda görünür.
 
 **Render otomatik güncellenmiyorsa:** Render'ın GitHub uygulamasının bu depoya erişimi yoksa güncellemeler gelmez. İki çözüm:

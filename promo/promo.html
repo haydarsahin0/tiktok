@@ -18,19 +18,45 @@
 /* Taraftar Ligi — tanıtım videosu (1080x1920, 30 fps, 27 sn).
  * Her kare zamana göre deterministik çizilir: renderFrame(t). Ses: renderAudio() (OfflineAudioContext).
  * render.cjs kareleri ve sesi alıp ffmpeg ile MP4 yapar. */
-const W = 1080, H = 1920, FPS = 30, DUR = 27;
+const W = 1080, H = 1920, FPS = 30;
 const FONT = '"Baloo 2", "Segoe UI", Arial, sans-serif';
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
 
-// ---------- zaman çizelgesi (görüntü ve ses aynı tabloyu kullanır) ----------
-const SC = {
-  hook: [0, 3], chat: [3, 7], press: [7, 11], goal: [11, 15], screen: [15, 19.5], celebs: [19.5, 23], cta: [23, 27],
+// ---------- seslendirme ve zaman çizelgesi ----------
+// vo-cues.json: seslendirmedeki her kelimenin başlangıç/bitiş zamanı (Whisper + enerji analiziyle).
+// Bütün animasyonlar ve altyazılar bu zamanlara bağlıdır.
+const VO_OFFSET = 0.6; // seslendirme videonun 0,6. saniyesinde başlar (top önce düşsün)
+const VO = (() => { try { const x = new XMLHttpRequest(); x.open('GET', 'vo-cues.json', false); x.send(); return JSON.parse(x.responseText); } catch { return null; } })();
+const norm = (w) => w.toLocaleLowerCase('tr-TR').replace(/[^a-zçğıöşü0-9']/g, '');
+function cue(word, nth = 1) {
+  let k = 0;
+  for (const w of VO.words) if (norm(w.w) === norm(word) && ++k === nth) return w.s + VO_OFFSET;
+  throw new Error('kelime bulunamadı: ' + word);
+}
+const C = {
+  takimini: cue('Takımını'), sen: cue('sen'), sampiyon: cue('şampiyon'), tiktok: cue("TikTok'ta"), superlig: cue('Süper'),
+  chat: cue('Yoruma'), plaka: cue('plakasını'), taraftari: cue('taraftarı'),
+  press: cue('Hediye'), begen: cue('beğen'), takip: cue('takip'), baski: cue('baskı'),
+  goal: cue('Tur'), uc: cue('üç'), iki: cue('iki'), bir: cue('bir'), gol: cue('Gol'), yuzde: cue('Yüzde'), gecen: cue('geçen'),
+  screen: cue('Gerçek'), tablo: cue('canlı', 2), hafta: cue('Haftanın'),
+  celebs: cue('Her', 2), horon: cue('Horon'), aslan: cue('aslan'), timsah: cue('timsah'), yigido: cue('Yiğido'),
+  cta: cue('İlk'), saat: cue('saat'), takipEt: cue('Takip', 2), yalniz: cue('takımını', 2),
 };
-const CHAT_T = [0.35, 0.8, 1.25, 1.7, 2.15, 2.6]; // yorumların düştüğü an (sahne içi)
-const GIFT_T = [0.55, 1.0, 1.4, 1.8, 2.2, 2.6];    // hediyelerin vardığı an (sahne içi, uçuş 0.45 sn)
-const GOAL_AT = 1.0;                                // gol anı (gol sahnesi içi)
-const CUT = 0.875;                                  // kutlama kesmesi süresi
+const DUR = Math.ceil((VO.duration + VO_OFFSET + 1.0) * 10) / 10;
+const LEAD = 0.12; // sahne, cümleden biraz önce başlasın (geçiş şeridi tam kelimede açılsın)
+const SC = {
+  hook: [0, C.chat - LEAD], chat: [C.chat - LEAD, C.press - LEAD], press: [C.press - LEAD, C.goal - LEAD],
+  goal: [C.goal - LEAD, C.screen - LEAD], screen: [C.screen - LEAD, C.celebs - LEAD],
+  celebs: [C.celebs - LEAD, C.cta - LEAD], cta: [C.cta - LEAD, DUR],
+};
+const rel = (k, t) => t - SC[k][0]; // mutlak zamanı sahne içi zamana çevir
+const CHAT_T = [0.35, 0.8, 1.25, 1.7, 2.15, 2.6];
+// hediyeler kelimelerle uçar: "Hediye at", "beğen", "takip et", ..., "baskı puanı"
+const GIFT_T = [rel('press', C.press) + 0.45, rel('press', C.begen) + 0.15, rel('press', C.takip) + 0.2,
+  rel('press', C.takip) + 0.75, rel('press', C.takip) + 1.25, rel('press', C.baski) + 0.1];
+const GOAL_AT = rel('goal', C.gol);
+const CUTS = [C.horon, C.aslan, C.timsah, C.yigido].map((t) => rel('celebs', t));
 
 // ---------- yardımcılar ----------
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -185,24 +211,23 @@ function wipe(t) {
 
 // ---------- SAHNE 1: kanca ----------
 function sceneHook(lt) {
-  // top düşer, çarpar
-  const drop = prog(lt, 0, 0.55);
+  // lt = mutlak zaman (sahne 0'da başlar). Top "Takımını" kelimesinde yere çarpar.
+  const I = C.takimini - 0.04;
+  const drop = prog(lt, 0, I);
   let by = lerp(-180, 1050, drop * drop);
-  if (lt > 0.55) { const b = prog(lt, 0.55, 1.0); by = 1050 - Math.sin(b * Math.PI) * 170; }
-  if (lt > 1.0) { const b = prog(lt, 1.0, 1.3); by = 1050 - Math.sin(b * Math.PI) * 50; }
-  const ballOut = eInOut(prog(lt, 1.75, 2.05));
-  const bscale = 1 - ballOut;
+  if (lt > I) { const b = prog(lt, I, I + 0.45); by = 1050 - Math.sin(b * Math.PI) * 170; }
+  if (lt > I + 0.45) { const b = prog(lt, I + 0.45, I + 0.75); by = 1050 - Math.sin(b * Math.PI) * 50; }
+  const bscale = 1 - eInOut(prog(lt, C.tiktok - 0.35, C.tiktok - 0.05));
   if (bscale > 0.01) emoji('⚽', 540, by, 210 * bscale, lt * 7);
-  // çarpma: flaş + şok halkası
-  const f = prog(lt, 0.55, 0.9);
+  const f = prog(lt, I, I + 0.35);
   if (f > 0 && f < 1) {
     ctx.save(); ctx.globalAlpha = (1 - f) * 0.55; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.restore();
     ctx.save(); ctx.globalAlpha = 1 - f; ctx.lineWidth = 18 * (1 - f); ctx.strokeStyle = '#ffd400';
     ctx.beginPath(); ctx.arc(540, 1120, 80 + f * 700, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
   }
-  confetti(lt, 0.55, 540, 1100, ['#ffd400', '#c8102e', '#fff', '#5DADE2'], 120, 11, 1.1);
+  confetti(lt, I, 540, 1100, ['#ffd400', '#c8102e', '#fff', '#5DADE2'], 120, 11, 1.1);
   // logo
-  const lp = eBack(prog(lt, 1.25, 1.6), 2);
+  const lp = eBack(prog(lt, C.sampiyon + 0.45, C.sampiyon + 0.8), 2);
   if (lp > 0) {
     ctx.save(); ctx.translate(540, 250); ctx.scale(lp, lp);
     rr(-260, -50, 520, 100, 50); ctx.fillStyle = '#c8102e'; ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = '#fff'; ctx.stroke();
@@ -212,18 +237,18 @@ function sceneHook(lt) {
     txt('TARAFTAR LİGİ', 30, 4, { size: 56, stroke: 8 });
     ctx.restore();
   }
-  // başlık: çakılan kelimeler
-  popTxt('TAKIMINI', 540, 520, prog(lt, 0.55, 0.9), { size: 128, stroke: 16 });
-  const sp = prog(lt, 0.8, 1.1);
+  // kelimelerle çakılan başlık
+  popTxt('TAKIMINI', 540, 520, prog(lt, C.takimini, C.takimini + 0.35), { size: 128, stroke: 16 });
+  const sp = prog(lt, C.sen, C.sen + 0.3);
   if (sp > 0) {
-    const s = lerp(2.4, 1, eBack(sp, 1.4));
-    ctx.save(); ctx.translate(540, 672); ctx.scale(s, s); ctx.rotate(-0.04);
+    const sc = lerp(2.4, 1, eBack(sp, 1.4));
+    ctx.save(); ctx.translate(540, 672); ctx.scale(sc, sc); ctx.rotate(-0.04);
     rr(-150, -78, 300, 156, 30); ctx.fillStyle = '#c8102e'; ctx.globalAlpha = clamp(sp * 3, 0, 1); ctx.fill();
     txt('SEN', 0, 6, { size: 150, stroke: 0 }); ctx.restore();
   }
-  popTxt('ŞAMPİYON YAP!', 540, 840, prog(lt, 1.05, 1.4), { size: 124, stroke: 16, color: '#ffd400', max: 1000 });
-  // alt satır
-  const sub = eOut(prog(lt, 1.7, 2.1));
+  popTxt('ŞAMPİYON YAP!', 540, 840, prog(lt, C.sampiyon, C.sampiyon + 0.35), { size: 124, stroke: 16, color: '#ffd400', max: 1000 });
+  // "TikTok'ta canlı Süper Lig başlıyor!"
+  const sub = eOut(prog(lt, C.tiktok, C.tiktok + 0.4));
   if (sub > 0) {
     ctx.save(); ctx.globalAlpha = sub; ctx.translate(0, lerp(60, 0, sub));
     rr(150, 980, 780, 92, 46); ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.stroke();
@@ -231,9 +256,8 @@ function sceneHook(lt) {
     txt("TikTok'ta CANLI Süper Lig oyunu", 560, 1028, { size: 46, max: 680 });
     ctx.restore();
   }
-  // formalar sıralanır
   ['gs', 'fb', 'bjk', 'ts'].forEach((id, i) => {
-    const p = eBack(prog(lt, 1.95 + i * 0.12, 2.35 + i * 0.12), 1.6);
+    const p = eBack(prog(lt, C.superlig + i * 0.12, C.superlig + 0.4 + i * 0.12), 1.6);
     if (p <= 0) return;
     const x = 210 + i * 220;
     ctx.save(); ctx.globalAlpha = clamp(p, 0, 1); ctx.translate(0, lerp(260, 0, p));
@@ -286,8 +310,12 @@ function sceneChat(lt) {
       ctx.restore();
     }
   });
-  const fp = eOut(prog(lt, 2.9, 3.3));
-  if (fp > 0) txt('Plakası da olur: 61 • 58 • 16 • 55 …', 540, 1400, { size: 40, weight: 700, color: '#cfe', alpha: fp, stroke: 6 });
+  const pl = rel('chat', C.plaka);
+  const fp = eOut(prog(lt, pl, pl + 0.35));
+  if (fp > 0) {
+    ctx.save(); ctx.globalAlpha = fp; ctx.translate(540, 1385); ctx.scale(lerp(1.3, 1, fp), lerp(1.3, 1, fp));
+    txt('Plakası da olur: 61 • 58 • 16 • 55 …', 0, 0, { size: 42, weight: 700, color: '#ffd400', stroke: 7 }); ctx.restore();
+  }
 }
 
 // ---------- maç kartı (sahne 3 ve 4) ----------
@@ -320,7 +348,7 @@ function matchCard(y, share, hg, ag, hp, ap, lt, flashGoal = 0) {
 }
 
 // ---------- SAHNE 3: baskı ----------
-const GIFTS = ['🌹', '🎁', '💎', '❤️', '🦁', '🌹'];
+const GIFTS = ['🎁', '❤️', '➕', '🌹', '💎', '🦁'];
 function pressShare(lt) {
   let s = 0.5;
   const steps = [0.56, 0.6, 0.66, 0.7, 0.75, 0.79];
@@ -344,7 +372,8 @@ function scenePress(lt) {
       emoji(GIFTS[i], x, y, 110 * (1 - p * 0.4), p * 3);
     }
     const a = clamp((lt - g) / 0.7, 0, 1);
-    if (a > 0 && a < 1) txt('+1.650', 865, 560 - a * 70, { size: 54, color: '#ffd400', stroke: 9, alpha: 1 - a });
+    const plus = ['+1.650', '+1', '+50', '+1.650', '+1.650', '+1.650'][i];
+    if (a > 0 && a < 1) txt(plus, 865, 560 - a * 70, { size: 54, color: '#ffd400', stroke: 9, alpha: 1 - a });
   });
   // GOL YOLDA
   if (lt > GIFT_T[3] + 0.15) {
@@ -354,7 +383,7 @@ function scenePress(lt) {
     txt(lt > GIFT_T[5] ? 'ÇİFTE GOL!' : 'GOL YOLDA!', 0, 3, { size: 40 });
     ctx.restore();
   }
-  const lp = eOut(prog(lt, 0.3, 0.7));
+  const lp = eOut(prog(lt, rel('press', C.begen) - 0.1, rel('press', C.begen) + 0.3));
   if (lp > 0) {
     ctx.save(); ctx.globalAlpha = lp;
     rr(110, 1130, 860, 150, 30); ctx.fillStyle = 'rgba(255,212,0,.95)'; ctx.fill();
@@ -367,40 +396,54 @@ function scenePress(lt) {
 // ---------- SAHNE 4: gol ----------
 function sceneGoal(lt) {
   const shake = lt > GOAL_AT && lt < GOAL_AT + 0.45 ? (1 - (lt - GOAL_AT) / 0.45) * 22 : 0;
+  const nums = [[rel('goal', C.uc), '3'], [rel('goal', C.iki), '2'], [rel('goal', C.bir), '1']];
   ctx.save();
   if (shake) { const r = rng(Math.floor(lt * 60)); ctx.translate((r() - 0.5) * shake, (r() - 0.5) * shake); }
   header(lt, '3', 'Turu %65+ alan', 'GOL ATAR!');
   const scored = lt >= GOAL_AT;
   const flash = scored ? clamp(1 - (lt - GOAL_AT) / 1.2, 0, 1) : 0;
-  matchCard(540, 0.21, 0, scored ? 1 : 0, 450, 10100, lt, flash);
-  // geri sayım
+  // gol öncesi: baskı çubuğu son anda %79'a çıkar
+  const build = 0.5 - 0.29 * eOut(prog(lt, 0.2, nums[0][0]));
+  matchCard(540, scored ? 0.21 : build, 0, scored ? 1 : 0, 450, scored ? 10100 : lerp(900, 10100, eOut(prog(lt, 0.2, nums[0][0]))), lt, flash);
   if (!scored) {
-    const n = 3 - Math.floor(lt / (GOAL_AT / 3));
-    const ph = (lt % (GOAL_AT / 3)) / (GOAL_AT / 3);
-    txt('TUR BİTİYOR', 540, 1035, { size: 44, color: '#ffcf70', stroke: 7 });
-    ctx.save(); ctx.translate(540, 1165); const s = lerp(1.8, 1, eOut(ph)); ctx.scale(s, s);
-    txt(String(clamp(n, 1, 3)), 0, 0, { size: 150, stroke: 14, alpha: 1 - ph * 0.5 }); ctx.restore();
+    txt('TUR BİTİYOR', 540, 1035, { size: 48, color: '#ffcf70', stroke: 8, alpha: eOut(prog(lt, 0.05, 0.35)) });
+    // sayılar, söylendikleri anda düşer
+    const cur = nums.filter(([t]) => lt >= t).pop();
+    if (cur) {
+      const ph = clamp((lt - cur[0]) / 0.5, 0, 1);
+      ctx.save(); ctx.translate(540, 1170); const sc = lerp(2.2, 1, eBack(ph, 1.6)); ctx.scale(sc, sc);
+      txt(cur[1], 0, 0, { size: 170, stroke: 16, color: '#fff', alpha: clamp(ph * 4, 0, 1) }); ctx.restore();
+    } else {
+      // "Tur bitiyor" derken saat tik tak
+      const pul = 1 + Math.sin(lt * 12) * 0.05;
+      ctx.save(); ctx.translate(540, 1170); ctx.scale(pul, pul); emoji('⏱️', 0, 0, 130); ctx.restore();
+    }
   }
   ctx.restore();
   if (scored) {
     const g = lt - GOAL_AT;
-    // GOOOL patlaması
-    const s = lerp(3, 1, eElastic(clamp(g / 0.6, 0, 1)));
-    ctx.save(); ctx.translate(540, 1100); ctx.rotate(-0.06); ctx.scale(s, s);
-    txt('GOOOL!', 0, 0, { size: 190, stroke: 24, color: '#FFED00', strokeColor: '#002D72', glow: 40, glowColor: '#FFED00' });
-    ctx.restore();
-    // kanaryalar
+    // kanaryalar (kuralların arkasında)
     for (let i = 0; i < 7; i++) {
       const u = clamp(g * 0.55 - i * 0.05, 0, 1);
       if (u <= 0 || u >= 1) continue;
-      emoji('🐤', lerp(W + 140, -140, u), 1470 + (i % 3) * 85 + Math.sin(u * 9 + i) * 40, 90);
+      emoji('🐤', lerp(W + 140, -140, u), 1240 + (i % 3) * 70 + Math.sin(u * 9 + i) * 30, 86);
     }
+    const s2 = lerp(3, 1, eElastic(clamp(g / 0.6, 0, 1)));
+    ctx.save(); ctx.translate(540, 1100); ctx.rotate(-0.06); ctx.scale(s2, s2);
+    txt('GOOOL!', 0, 0, { size: 190, stroke: 24, color: '#FFED00', strokeColor: '#002D72', glow: 40, glowColor: '#FFED00' });
+    ctx.restore();
     confetti(lt, GOAL_AT, 540, 900, ['#002D72', '#FFED00', '#fff'], 160, 21, 1.2);
-    // ek kurallar
-    const c1 = eBack(prog(g, 0.7, 1.0), 1.6);
-    const c2 = eBack(prog(g, 0.95, 1.25), 1.6);
-    if (c1 > 0) { ctx.save(); ctx.translate(540, 1270); ctx.scale(c1, c1); rr(-330, -42, 660, 84, 42); ctx.fillStyle = '#ff3b3b'; ctx.fill(); txt('%85+ = ÇİFTE GOL!', 0, 4, { size: 46 }); ctx.restore(); }
-    if (c2 > 0) { ctx.save(); ctx.translate(540, 1375); ctx.scale(c2, c2); rr(-380, -40, 760, 80, 40); ctx.fillStyle = '#ffd400'; ctx.fill(); txt('Anadolu takımlarına x1,5', 0, 4, { size: 42, color: '#111' }); ctx.restore(); }
+    // kurallar: "Yüzde altmış beşi geçen golü atar!"
+    const t1 = rel('goal', C.yuzde), t2 = rel('goal', C.gecen) + 0.3, t3 = t2 + 0.55;
+    const chip = (tt, y, w, col, txtCol, label) => {
+      const c = eBack(prog(lt, tt, tt + 0.3), 1.6);
+      if (c <= 0) return;
+      ctx.save(); ctx.translate(540, y); ctx.scale(c, c); rr(-w / 2, -40, w, 80, 40); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.stroke();
+      txt(label, 0, 4, { size: 44, color: txtCol }); ctx.restore();
+    };
+    chip(t1, 1230, 600, '#1fbf5b', '#fff', '%65+ = GOL!');
+    chip(t2, 1320, 660, '#ff3b3b', '#fff', '%85+ = ÇİFTE GOL!');
+    chip(t3, 1410, 760, '#ffd400', '#111', 'Anadolu takımlarına x1,5');
   }
 }
 
@@ -408,14 +451,15 @@ function sceneGoal(lt) {
 const shot = new Image();
 shot.src = '../docs/mac-gunu.png';
 function sceneScreen(lt) {
-  header(lt, '', 'Gerçek Süper Lig fikstürü', '+ CANLI PUAN TABLOSU', 250);
+  header(lt, '', 'Gerçek Süper Lig', 'FİKSTÜRÜ + CANLI TABLO', 250);
   const pw = 560, ph = 996;
   const rise = eBack(prog(lt, 0.05, 0.75), 1.3);
   const px = 540 - pw / 2, py = lerp(1900, 470, rise);
   const tilt = lerp(0.12, 0, rise);
   // kamera kareleri (ekran görüntüsü koordinatları, 9:16)
   const FULL = [0, 0, 1080, 1920], TABLE = [690, 330, 380, 676], MATCH = [10, 330, 690, 1227];
-  const k1 = eInOut(prog(lt, 1.2, 1.9)), k2 = eInOut(prog(lt, 2.6, 3.3)), k3 = eInOut(prog(lt, 3.9, 4.4));
+  const tT = rel('screen', C.tablo), tH = rel('screen', C.hafta), tEnd = SC.screen[1] - SC.screen[0];
+  const k1 = eInOut(prog(lt, tT - 0.15, tT + 0.55)), k2 = eInOut(prog(lt, tH - 0.15, tH + 0.55)), k3 = eInOut(prog(lt, tEnd - 0.85, tEnd - 0.25));
   let cam = FULL.map((v, i) => lerp(v, TABLE[i], k1));
   cam = cam.map((v, i) => lerp(v, MATCH[i], k2));
   cam = cam.map((v, i) => lerp(v, FULL[i], k3));
@@ -442,8 +486,8 @@ function sceneScreen(lt) {
     rr(-w / 2, -42, w, 84, 42); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = '#fff'; ctx.stroke();
     txt(s, 0, 4, { size: 46, stroke: 7 }); ctx.restore();
   };
-  lab('📈 Puan durumu canlı değişir', 1310, prog(lt, 1.6, 2.0) - prog(lt, 2.55, 2.75), '#1fbf5b');
-  lab('⚽ Haftanın tüm maçları aynı anda', 1310, prog(lt, 3.0, 3.4) - prog(lt, 4.05, 4.3), '#c8102e');
+  lab('📈 Canlı puan tablosu', 1310, prog(lt, tT, tT + 0.35) - prog(lt, tH - 0.35, tH - 0.15), '#1fbf5b');
+  lab('⚽ Bütün maçlar aynı anda', 1310, prog(lt, tH, tH + 0.35) - prog(lt, tEnd - 0.5, tEnd - 0.3), '#c8102e');
 }
 
 // ---------- SAHNE 6: kutlamalar ----------
@@ -457,9 +501,24 @@ function band(c1, c2, title, sub, p) {
 }
 function sceneCelebs(lt) {
   header(lt, '', 'Her golde takımına', 'ÖZEL KUTLAMA!', 250);
-  const i = Math.min(3, Math.floor(lt / CUT));
-  const p = (lt - i * CUT) / CUT;
   const cy = 1050;
+  // "Her golde takımına özel kutlama!" — kutlamalar sırayla tanıtılır
+  if (lt < CUTS[0]) {
+    const icons = [['🎶', '#7A1E48'], ['🦁', '#A90432'], ['🐊', '#00843D'], ['📣', '#D7182A']];
+    icons.forEach(([e, col], j) => {
+      const pj = eBack(prog(lt, 0.35 + j * 0.28, 0.65 + j * 0.28), 1.8);
+      if (pj <= 0) return;
+      const x = 540 + (j - 1.5) * 220, y = 800 + Math.sin(lt * 5 + j) * 10;
+      ctx.save(); ctx.translate(x, y); ctx.scale(pj, pj);
+      ctx.beginPath(); ctx.arc(0, 0, 92, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 8; ctx.strokeStyle = '#fff'; ctx.stroke();
+      emoji(e, 0, 4, 100); ctx.restore();
+    });
+    return;
+  }
+  let i = 0;
+  while (i < 3 && lt >= CUTS[i + 1]) i++;
+  const cutEnd = i < 3 ? CUTS[i + 1] : SC.celebs[1] - SC.celebs[0];
+  const p = clamp((lt - CUTS[i]) / Math.max(0.3, cutEnd - CUTS[i]), 0, 1);
   if (i === 0) {
     band('#7A1E48', '#5DADE2', 'HORON ZAMANI!', 'TRABZONSPOR GOLÜ!', p);
     const n = 7;
@@ -484,7 +543,7 @@ function sceneCelebs(lt) {
     txt('YİĞİDO!', 0, 0, { size: 170, stroke: 22, strokeColor: '#D7182A', alpha: 1 - bp * 0.4 }); ctx.restore();
   }
   // kesmeler arası beyaz flaş
-  const fl = Math.min(...[1, 2, 3].map((k) => Math.abs(lt - k * CUT)));
+  const fl = Math.min(...CUTS.map((k) => Math.abs(lt - k)));
   if (fl < 0.07) { ctx.save(); ctx.globalAlpha = (1 - fl / 0.07) * 0.8; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
 }
 
@@ -498,7 +557,7 @@ function sceneCta(lt) {
   for (let i = 0; i < 12; i++) { ctx.rotate(Math.PI / 6); ctx.fillStyle = i % 2 ? 'rgba(255,212,0,.07)' : 'rgba(255,255,255,.05)'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-110, -1500); ctx.lineTo(110, -1500); ctx.fill(); }
   ctx.restore();
   // logo
-  const lp = eBack(prog(lt, 0.15, 0.6), 1.8);
+  const lp = eBack(prog(lt, 0.0, 0.45), 1.8);
   if (lp > 0) {
     ctx.save(); ctx.translate(540, 520); ctx.scale(lp, lp); ctx.rotate((1 - lp) * -0.6);
     ctx.beginPath(); ctx.arc(0, 0, 175, 0, Math.PI * 2); ctx.fillStyle = '#c8102e'; ctx.fill(); ctx.lineWidth = 14; ctx.strokeStyle = '#ffd400'; ctx.stroke();
@@ -507,9 +566,9 @@ function sceneCta(lt) {
     emoji('⚽', 72, 0, 110, lt);
     ctx.restore();
   }
-  popTxt('TARAFTAR LİGİ', 540, 760, prog(lt, 0.45, 0.8), { size: 112, stroke: 16, max: 1000 });
+  popTxt('TARAFTAR LİGİ', 540, 760, prog(lt, 0.2, 0.55), { size: 112, stroke: 16, max: 1000 });
   // İlk yayın duyurusu
-  const a = eOut(prog(lt, 0.75, 1.1));
+  const a = eOut(prog(lt, 0.12, 0.45)); // "İlk yayın bu akşam"
   if (a > 0) {
     ctx.save(); ctx.globalAlpha = a; ctx.translate(0, lerp(40, 0, a));
     rr(540 - 270, 838, 540, 80, 40); ctx.fillStyle = Math.floor(lt * 3) % 2 ? '#ff2d55' : '#c4002a'; ctx.fill();
@@ -518,14 +577,16 @@ function sceneCta(lt) {
     txt('İLK YAYIN BU AKŞAM', 552, 881, { size: 46 });
     ctx.restore();
   }
-  const tp = prog(lt, 0.95, 1.35);
+  const tS = rel('cta', C.saat);
+  const tp = prog(lt, tS + 0.15, tS + 0.55); // "saat yirmi ikide"
   if (tp > 0) {
     const s2 = lerp(2.2, 1, eBack(tp, 1.5)) * (1 + Math.sin(lt * 6) * 0.02);
     ctx.save(); ctx.translate(540, 1008); ctx.scale(s2, s2);
     txt('22:00', 0, 0, { size: 190, color: '#ffd400', stroke: 20, alpha: clamp(tp * 3, 0, 1), glow: 30, glowColor: 'rgba(255,212,0,.6)' });
     ctx.restore();
   }
-  const fp = eBack(prog(lt, 1.35, 1.75), 1.8);
+  const tK = rel('cta', C.takipEt);
+  const fp = eBack(prog(lt, tK, tK + 0.4), 1.8); // "Takip et"
   if (fp > 0) {
     const pulse = 1 + Math.sin(lt * 7) * 0.05;
     ctx.save(); ctx.translate(540, 1185); ctx.scale(fp * pulse, fp * pulse);
@@ -535,17 +596,61 @@ function sceneCta(lt) {
     txt('➕ TAKİP ET', 0, 6, { size: 72 });
     ctx.restore();
   }
-  const sp = eOut(prog(lt, 1.85, 2.25));
-  if (sp > 0) {
-    txt('Sonra her akşam 20:00 – 24:00 CANLI', 540, 1325, { size: 42, weight: 700, alpha: sp, stroke: 8, max: 960 });
-    txt('Takımını yalnız bırakma! ⚽', 540, 1395, { size: 46, weight: 700, alpha: sp, stroke: 8, color: '#ffd400' });
-  }
-  confetti(lt, 0.5, 540, 600, ['#ffd400', '#c8102e', '#fff'], 120, 31, 1.2);
-  confetti(lt, 1.6, 300, 900, ['#ffd400', '#fe2c55', '#fff'], 80, 41, 0.9);
-  confetti(lt, 2.3, 800, 900, ['#ffd400', '#5DADE2', '#fff'], 80, 51, 0.9);
+  const tY = rel('cta', C.yalniz);
+  const sp = eOut(prog(lt, tY, tY + 0.4)); // "takımını yalnız bırakma"
+  if (sp > 0) txt('Sonra her akşam 20:00 – 24:00 CANLI', 540, 1325, { size: 42, weight: 700, alpha: sp, stroke: 8, max: 960 });
+  confetti(lt, 0.1, 540, 600, ['#ffd400', '#c8102e', '#fff'], 120, 31, 1.2);
+  confetti(lt, tS + 0.2, 300, 1000, ['#ffd400', '#fe2c55', '#fff'], 90, 41, 0.9);
+  confetti(lt, tK + 0.1, 800, 1000, ['#ffd400', '#5DADE2', '#fff'], 90, 51, 0.9);
   // son kararma
-  const fo = prog(lt, 3.6, 4.0);
+  const L = SC.cta[1] - SC.cta[0];
+  const fo = prog(lt, L - 0.45, L);
   if (fo > 0) { ctx.fillStyle = `rgba(0,0,0,${fo * 0.6})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- altyazı (konuşmayla kelime kelime eş zamanlı) ----------
+const SUB_Y = 1505;
+function subtitles(t) {
+  const chunks = VO.chunks;
+  const vt = t - VO_OFFSET;
+  let idx = -1;
+  for (let i = 0; i < chunks.length; i++) {
+    const st = chunks[i][0].s - 0.06;
+    const next = i + 1 < chunks.length ? chunks[i + 1][0].s - 0.06 : Infinity;
+    const end = Math.min(next, chunks[i][chunks[i].length - 1].e + 0.45);
+    if (vt >= st && vt < end) { idx = i; break; }
+  }
+  if (idx < 0) return;
+  const ch = chunks[idx];
+  const age = vt - (ch[0].s - 0.06);
+  const words = ch.map((w) => w.w.toLocaleUpperCase('tr-TR'));
+  let size = 74;
+  let gap = Math.round(size * 0.5);
+  ctx.font = `800 ${size}px ${FONT}`;
+  let widths = words.map((w) => ctx.measureText(w).width);
+  let total = widths.reduce((a, b) => a + b, 0) + gap * (words.length - 1);
+  if (total > 940) { size = Math.floor(size * 940 / total); gap = Math.round(size * 0.5); ctx.font = `800 ${size}px ${FONT}`; widths = words.map((w) => ctx.measureText(w).width); total = widths.reduce((a, b) => a + b, 0) + gap * (words.length - 1); }
+  const pop = lerp(0.82, 1, eBack(clamp(age / 0.16, 0, 1), 2));
+  ctx.save();
+  ctx.translate(540, SUB_Y);
+  ctx.scale(pop, pop);
+  // okunurluk için yumuşak koyu zemin
+  const pad = 30;
+  rr(-total / 2 - pad, -size * 0.72, total + pad * 2, size * 1.44, size * 0.4);
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fill();
+  let x = -total / 2;
+  ch.forEach((w, i) => {
+    const active = vt >= w.s - 0.03 && vt < (i + 1 < ch.length ? ch[i + 1].s - 0.03 : w.e + 0.45);
+    const said = vt >= w.s - 0.03;
+    const k = active ? 1 + 0.12 * (1 - clamp((vt - w.s) / 0.18, 0, 1)) : 1;
+    ctx.save();
+    ctx.translate(x + widths[i] / 2, 4);
+    ctx.scale(k, k);
+    txt(words[i], 0, 0, { size, stroke: Math.round(size * 0.2), color: active ? '#ffd400' : said ? '#ffffff' : 'rgba(255,255,255,.55)' });
+    ctx.restore();
+    x += widths[i] + gap;
+  });
+  ctx.restore();
 }
 
 // ---------- kare çizimi ----------
@@ -562,6 +667,7 @@ function renderFrame(t) {
   else if (inS('celebs')) sceneCelebs(t - SC.celebs[0]);
   else sceneCta(t - SC.cta[0]);
   wipe(t);
+  subtitles(t);
   // hafif vinyet
   const v = ctx.createRadialGradient(540, 960, 600, 540, 960, 1250);
   v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.45)');
@@ -601,8 +707,8 @@ async function renderAudio() {
   const pluck = (m, t, v = 1) => { const g = ac.createGain(); g.connect(music); env(g, t, 0.09 * v, 0.004, 0.22); osc('triangle', mtof(m), t, t + 0.3, g); };
   const pad = (notes, t, len) => { notes.forEach((m) => { const g = ac.createGain(); const f = filt('lowpass', 1200); f.connect(g).connect(music); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.035, t + 0.5); g.gain.linearRampToValueAtTime(0.0001, t + len); osc('sawtooth', mtof(m), t, t + len, f); osc('sawtooth', mtof(m) * 1.004, t, t + len, f); }); };
 
-  const start = 0.55;
-  const gStart = SC.goal[0] + 0.0, gHit = SC.goal[0] + GOAL_AT; // gol öncesi kesinti
+  const start = C.takimini - 0.04; // müzik topun yere çarptığı anda başlar
+  const gStart = SC.goal[0], gHit = C.gol; // "Tur bitiyor... üç, iki, bir" boyunca davul susar
   for (let bt = start; bt < DUR - 0.6; bt += B) {
     const beat = Math.round((bt - start) / B);
     const bar = Math.floor(beat / 4);
@@ -621,8 +727,22 @@ async function renderAudio() {
       pluck(arp[beat % 4], bt, 0.8); pluck(arp[(beat + 2) % 4], bt + B / 2, 0.6);
     }
   }
-  // müzik sonu: yumuşak kısma
-  music.gain.setValueAtTime(0.9, 0); music.gain.setValueAtTime(0.9, DUR - 1.4); music.gain.linearRampToValueAtTime(0.0001, DUR - 0.05);
+  // Seslendirme konuşurken müzik kısılır (ducking), aralarda yükselir; sonda yavaşça biter
+  const FULL = 0.85, DUCK = 0.36;
+  const spans = [];
+  for (const w of VO.words) {
+    const a = w.s + VO_OFFSET - 0.08, b = w.e + VO_OFFSET + 0.12;
+    if (spans.length && a - spans[spans.length - 1][1] < 0.4) spans[spans.length - 1][1] = b; else spans.push([a, b]);
+  }
+  music.gain.setValueAtTime(FULL, 0);
+  for (const [a, b] of spans) {
+    music.gain.setValueAtTime(FULL, Math.max(0, a - 0.06));
+    music.gain.linearRampToValueAtTime(DUCK, a + 0.04);
+    music.gain.setValueAtTime(DUCK, b);
+    music.gain.linearRampToValueAtTime(FULL, b + 0.18);
+  }
+  music.gain.setValueAtTime(FULL, DUR - 1.4); music.gain.linearRampToValueAtTime(0.0001, DUR - 0.05);
+  sfx.gain.value = 0.85;
 
   // --- efektler ---
   const whoosh = (t, v = 1) => { const g = ac.createGain(); const f = filt('bandpass', 400, 1.2); f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(3000, t + 0.35); f.connect(g).connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.5 * v, t + 0.18); g.gain.linearRampToValueAtTime(0.0001, t + 0.45); noise(t, 0.5, f); };
@@ -635,41 +755,44 @@ async function renderAudio() {
   const whistle = (t, dur = 0.5) => { const g = ac.createGain(); g.connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.12, t + 0.03); g.gain.setValueAtTime(0.12, t + dur - 0.05); g.gain.linearRampToValueAtTime(0.0001, t + dur); const o = osc('sine', 2900, t, t + dur, g); const l = ac.createOscillator(); const lg = ac.createGain(); l.frequency.value = 38; lg.gain.value = 140; l.connect(lg).connect(o.frequency); l.start(t); l.stop(t + dur); };
   const horn = (t, notes, gap, last, v = 1) => notes.forEach((m, i) => { const tt = t + i * gap; const len = i === notes.length - 1 ? last : gap * 0.9; const g = ac.createGain(); const f = filt('lowpass', 1900); f.connect(g).connect(sfx); g.gain.setValueAtTime(0.0001, tt); g.gain.linearRampToValueAtTime(0.13 * v, tt + 0.04); g.gain.setValueAtTime(0.13 * v, tt + len - 0.06); g.gain.linearRampToValueAtTime(0.0001, tt + len + 0.12); osc('sawtooth', mtof(m), tt, tt + len + 0.15, f); osc('sawtooth', mtof(m) * 1.006, tt, tt + len + 0.15, f); });
 
-  // Sahne 1
-  { const g = ac.createGain(); g.connect(sfx); g.gain.setValueAtTime(0.0001, 0); g.gain.linearRampToValueAtTime(0.18, 0.5); g.gain.linearRampToValueAtTime(0.0001, 0.56); const o = osc('sine', 1200, 0, 0.56, g); o.frequency.exponentialRampToValueAtTime(260, 0.55); }
-  boom(0.55, 1.1); cheer(0.6, 2.2, 0.8);
-  slam(0.58); slam(0.83); slam(1.08, 1.2);
-  whoosh(1.25, 0.6); pop(1.75, 88);
-  [1.95, 2.07, 2.19, 2.31].forEach((t, i) => pop(t, 79 + i * 2));
-  // geçişler
-  [SC.chat[0], SC.press[0], SC.goal[0], SC.screen[0], SC.celebs[0], SC.cta[0]].forEach((c) => whoosh(c - 0.22));
-  // Sahne 2: yorum baloncukları
-  CHAT_T.forEach((t, i) => { pop(SC.chat[0] + t, 84 + (i % 3) * 3); chime(SC.chat[0] + t + 0.25, [91], 0, 0.5); });
-  // Sahne 3: hediyeler
-  GIFT_T.forEach((t, i) => { whoosh(SC.press[0] + t - 0.45, 0.35); chime(SC.press[0] + t, i === 5 ? [79, 84, 88, 91, 96] : [84 + (i % 3) * 2, 91], 0.06, 0.9); });
-  // Sahne 4: geri sayım + gol
-  [0, 1, 2].forEach((k) => { const t = SC.goal[0] + k * (GOAL_AT / 3); const g = ac.createGain(); g.connect(sfx); env(g, t, 0.22, 0.003, 0.15); osc('square', k === 2 ? 1320 : 880, t, t + 0.18, filt('lowpass', 3000)).connect(g); });
-  riser(SC.goal[0], GOAL_AT);
-  whistle(SC.goal[0] + GOAL_AT - 0.02, 0.35);
-  boom(SC.goal[0] + GOAL_AT, 1.3); cheer(SC.goal[0] + GOAL_AT, 3.2, 1.2);
-  horn(SC.goal[0] + GOAL_AT + 0.15, [67, 72, 76, 79], 0.12, 0.6, 0.9);
-  for (let i = 0; i < 8; i++) { const t = SC.goal[0] + GOAL_AT + 0.4 + i * 0.16; const g = ac.createGain(); g.connect(sfx); env(g, t, 0.06, 0.004, 0.08); const o = osc('sine', 2300 + (i % 3) * 300, t, t + 0.12, g); o.frequency.exponentialRampToValueAtTime(3200, t + 0.08); }
-  pop(SC.goal[0] + GOAL_AT + 0.7, 76); pop(SC.goal[0] + GOAL_AT + 0.95, 79);
-  // Sahne 5: telefon girişi + etiketler
-  whoosh(SC.screen[0] + 0.05, 0.8); slam(SC.screen[0] + 0.7, 0.6);
-  pop(SC.screen[0] + 1.6, 86); pop(SC.screen[0] + 3.0, 88);
-  // Sahne 6: kutlamalar
-  { const t0 = SC.celebs[0];
-    // horon ezgisi
-    const mel = [76, 74, 76, 77, 76, 74, 72, 74]; mel.forEach((m, i) => { const t = t0 + i * 0.1; const g = ac.createGain(); const f = filt('bandpass', 1500, 0.8); f.connect(g).connect(sfx); env(g, t, 0.16, 0.01, 0.09); osc('sawtooth', mtof(m), t, t + 0.12, f); });
-    boom(t0 + CUT, 0.9); { const t = t0 + CUT; const g = ac.createGain(); const f = filt('lowpass', 420); f.connect(g).connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.3, t + 0.15); g.gain.linearRampToValueAtTime(0.0001, t + 0.8); noise(t, 0.85, f); const o = osc('sawtooth', 90, t, t + 0.85, f); o.frequency.linearRampToValueAtTime(65, t + 0.8); }
-    [0, 0.2, 0.4].forEach((d) => boom(t0 + 2 * CUT + d, 0.45));
-    [0, 0.15, 0.3].forEach((d, i) => { const t = t0 + 3 * CUT + d; const g = ac.createGain(); const f = filt('bandpass', i === 2 ? 700 : 950, 0.9); f.connect(g).connect(sfx); env(g, t, i === 2 ? 0.45 : 0.32, 0.02, i === 2 ? 0.35 : 0.14); noise(t, 0.45, f); boom(t, 0.35); });
-    [1, 2, 3].forEach((k) => whoosh(t0 + k * CUT - 0.12, 0.45));
-  }
-  // Sahne 7: kapanış
-  boom(SC.cta[0] + 0.2, 1.0); horn(SC.cta[0] + 0.25, [60, 64, 67, 72, 67, 72, 76, 79], 0.13, 0.9, 1);
-  cheer(SC.cta[0] + 0.3, 3.4, 1.0); slam(SC.cta[0] + 0.5); pop(SC.cta[0] + 1.35, 88); chime(SC.cta[0] + 1.35, [84, 88, 91, 96], 0.07, 0.8);
+  // ---- efektler: hepsi kelime zamanlarına bağlı ----
+  const I = C.takimini - 0.04;
+  { const g = ac.createGain(); g.connect(sfx); g.gain.setValueAtTime(0.0001, 0); g.gain.linearRampToValueAtTime(0.16, I - 0.05); g.gain.linearRampToValueAtTime(0.0001, I); const o = osc('sine', 1200, 0, I, g); o.frequency.exponentialRampToValueAtTime(260, I); }
+  boom(I, 1.1); cheer(I + 0.05, 2.0, 0.55);
+  slam(C.takimini, 0.8); slam(C.sen, 0.8); slam(C.sampiyon, 1.0);
+  whoosh(C.sampiyon + 0.4, 0.4); pop(C.tiktok, 88);
+  [0, 1, 2, 3].forEach((i) => pop(C.superlig + i * 0.12, 79 + i * 2));
+  // sahne geçişleri
+  ['chat', 'press', 'goal', 'screen', 'celebs', 'cta'].forEach((k) => whoosh(SC[k][0] - 0.22, 0.8));
+  // yorumlar
+  CHAT_T.forEach((t, i) => { pop(SC.chat[0] + t, 84 + (i % 3) * 3); chime(SC.chat[0] + t + 0.25, [91], 0, 0.35); });
+  pop(C.plaka, 90);
+  // hediyeler
+  GIFT_T.forEach((t, i) => { whoosh(SC.press[0] + t - 0.45, 0.3); chime(SC.press[0] + t, i === 5 ? [79, 84, 88, 91, 96] : [84 + (i % 3) * 2, 91], 0.06, 0.8); });
+  // geri sayım: "üç, iki, bir" kelimelerinde
+  [C.uc, C.iki, C.bir].forEach((t, k) => { const g = ac.createGain(); g.connect(sfx); env(g, t, 0.2, 0.003, 0.16); osc('square', k === 2 ? 1320 : 880, t, t + 0.2, g); });
+  riser(C.goal + 0.2, C.gol - C.goal - 0.2);
+  // GOL
+  whistle(C.gol - 0.06, 0.3);
+  boom(C.gol, 1.3); cheer(C.gol, 3.4, 1.15);
+  horn(C.gol + 0.12, [67, 72, 76, 79], 0.11, 0.45, 0.55);
+  for (let i = 0; i < 8; i++) { const t = C.gol + 0.5 + i * 0.16; const g = ac.createGain(); g.connect(sfx); env(g, t, 0.05, 0.004, 0.08); const o = osc('sine', 2300 + (i % 3) * 300, t, t + 0.12, g); o.frequency.exponentialRampToValueAtTime(3200, t + 0.08); }
+  pop(C.yuzde, 76); pop(C.gecen + 0.3, 79); pop(C.gecen + 0.85, 83);
+  // gerçek ekran
+  whoosh(SC.screen[0] + 0.05, 0.6); slam(SC.screen[0] + 0.7, 0.5);
+  pop(C.tablo, 86); whoosh(C.tablo - 0.1, 0.35); pop(C.hafta, 88); whoosh(C.hafta - 0.1, 0.35);
+  // kutlamalar
+  [0, 1, 2, 3].forEach((j) => pop(SC.celebs[0] + 0.35 + j * 0.28, 81 + j * 2));
+  { const mel = [76, 74, 76, 77, 76, 74, 72, 74]; mel.forEach((m, i) => { const t = C.horon + i * 0.1; const g = ac.createGain(); const f = filt('bandpass', 1500, 0.8); f.connect(g).connect(sfx); env(g, t, 0.14, 0.01, 0.09); osc('sawtooth', mtof(m), t, t + 0.12, f); }); }
+  boom(C.aslan, 0.8); { const t = C.aslan; const g = ac.createGain(); const f = filt('lowpass', 420); f.connect(g).connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.26, t + 0.12); g.gain.linearRampToValueAtTime(0.0001, t + 0.6); noise(t, 0.65, f); const o = osc('sawtooth', 90, t, t + 0.65, f); o.frequency.linearRampToValueAtTime(65, t + 0.6); }
+  [0, 0.2, 0.4].forEach((d) => boom(C.timsah + d, 0.4));
+  [0, 0.15, 0.3].forEach((d, i) => { const t = C.yigido + d; const g = ac.createGain(); const f = filt('bandpass', i === 2 ? 700 : 950, 0.9); f.connect(g).connect(sfx); env(g, t, i === 2 ? 0.4 : 0.28, 0.02, i === 2 ? 0.35 : 0.14); noise(t, 0.45, f); boom(t, 0.3); });
+  [C.horon, C.aslan, C.timsah, C.yigido].forEach((t) => whoosh(t - 0.14, 0.4));
+  // kapanış
+  boom(C.cta - 0.1, 1.0); horn(C.cta - 0.05, [60, 64, 67, 72], 0.12, 0.6, 0.5);
+  cheer(C.cta, 3.6, 0.8);
+  boom(C.saat + 0.15, 0.9); chime(C.saat + 0.15, [84, 88, 91, 96], 0.07, 0.8);
+  pop(C.takipEt, 88); chime(C.takipEt + 0.05, [91, 96], 0.08, 0.7);
   boom(DUR - 1.1, 0.8);
 
   const buf = await ac.startRendering();

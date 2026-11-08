@@ -31,12 +31,14 @@ function serve(root) {
   p.on('pageerror', (e) => errs.push(e.message));
   await p.goto(`http://127.0.0.1:${srv.address().port}/promo/promo.html`);
   await p.evaluate(() => window.ready);
-  const { FPS, DUR } = await p.evaluate(() => ({ FPS: 30, DUR: 27 }));
+  const { FPS, DUR, OFF, C } = await p.evaluate(() => ({ FPS, DUR, OFF: VO_OFFSET, C }));
+  console.log('süre:', DUR, 'sn');
   const grab = (t, q = 0.93) => p.evaluate(([t, q]) => { window.renderFrame(t); return document.getElementById('c').toDataURL('image/jpeg', q); }, [t, q]);
   const save = (file, dataUrl) => fs.writeFileSync(file, Buffer.from(dataUrl.split(',')[1], 'base64'));
 
   if (preview) {
-    const times = (process.env.TIMES || '0.7,1.6,2.6,4.6,6.2,9.4,10.6,12.3,13.2,16.7,18.3,19.8,20.6,21.4,22.3,24.2,25.6').split(',').map(Number);
+    const times = process.env.TIMES ? process.env.TIMES.split(',').map(Number)
+      : [C.sen + 0.3, C.tiktok + 0.5, C.superlig + 0.6, C.plaka + 0.4, C.taraftari, C.begen + 0.3, C.baski + 0.3, C.uc + 0.2, C.bir + 0.2, C.gol + 0.4, C.gecen + 0.9, C.tablo + 0.6, C.hafta + 0.6, C.celebs + 1.3, C.horon + 0.4, C.aslan + 0.2, C.timsah + 0.3, C.yigido + 0.3, C.saat + 0.6, C.takipEt + 0.6];
     for (const t of times) save(path.join(OUT, `prev_${t.toFixed(1)}.jpg`), await grab(t, 0.85));
     console.log('önizleme kareleri:', times.length, 'hatalar:', errs);
     await b.close();
@@ -60,7 +62,11 @@ function serve(root) {
   execFileSync('ffmpeg', ['-y', '-v', 'error',
     '-framerate', String(FPS), '-i', path.join(OUT, 'frames', 'f%04d.jpg'),
     '-i', path.join(OUT, 'audio.wav'),
-    '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11',
+    '-i', path.join(DIR, 'seslendirme.mp3'),
+    // seslendirme: 0,6 sn gecikmeli, müzik ve efektlerin üstünde; sonra TikTok seviyesine (-14 LUFS)
+    '-filter_complex', `[2:a]adelay=${Math.round(OFF * 1000)}|${Math.round(OFF * 1000)},aformat=channel_layouts=stereo,volume=${process.env.VO_GAIN || '1.6'}[vo];` +
+      '[1:a][vo]amix=inputs=2:normalize=0:duration=first,loudnorm=I=-14:TP=-1.5:LRA=11[a]',
+    '-map', '0:v', '-map', '[a]',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
     '-c:a', 'aac', '-b:a', '192k', '-ar', '44100',
     '-shortest', '-movflags', '+faststart', mp4], { stdio: 'inherit' });

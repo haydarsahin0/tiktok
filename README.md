@@ -105,8 +105,14 @@ Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya v
 - Hazır video: `docs/taraftar-ligi-tanitim.mp4` (dikey 1080x1920, 36 sn, seslendirmeli, kelime kelime eş zamanlı altyazılı, müzik ve efektli, TikTok ses seviyesi -14 LUFS). Kapanışta "İLK YAYIN BU AKŞAM 22:00" duyurusu var; başka gün paylaşılacaksa `promo/promo.html` içindeki bu yazıyı değiştirip yeniden üret.
 - Kaynak: `promo/promo.html` (sahneler, yazılar, animasyonlar ve ses tek dosyada). Tarayıcıda açınca önizleme olarak oynar.
 - Seslendirme: `promo/seslendirme.mp3`. Her kelimenin söylendiği an `promo/vo-cues.json` dosyasında; bütün animasyonlar, efektler ve altyazı bu zamanlara bağlı (konuşma sırasında müzik otomatik kısılır).
-- Yeniden üretmek (yazı, saat vb. değiştirdikten sonra): `node promo/render.cjs` → `promo/out/taraftar-ligi-tanitim.mp4`. Önizleme kareleri için: `node promo/render.cjs --preview`.
+- Yeniden üretmek (yazı, saat vb. değiştirdikten sonra): `node promo/render.cjs promo` → `promo/out/taraftar-ligi-tanitim.mp4`. Önizleme kareleri için: `node promo/render.cjs --preview`.
 - Seslendirme değişirse `vo-cues.json` yeniden çıkarılmalı (kelime zamanları, Whisper ile). Yeni metin eskisinden farklıysa `promo.html` içindeki `cue(...)` kelimeleri de güncellenmeli.
+
+### Döngülü tanıtım (ilk yayın duyurusu)
+
+- Hazır video: `docs/taraftar-ligi-dongu.mp4` (dikey, 40,6 sn, seslendirmeli, eş zamanlı altyazılı, -14 LUFS). Son cümle ("Çünkü sen gelmezsen...") ilk cümleye ("Senin takımın şu an kaybediyor.") bağlanır; son kare ilk kareyle aynı, müzik ritmi de başa kesintisiz oturur. TikTok videoyu tekrar oynattığında izleyici başa döndüğünü fark etmez.
+- Kaynak: `promo/dongu.html`, seslendirme `promo/dongu-ses.mp3`, kelime zamanları `promo/dongu-cues.json`. Kapanışta "İLK MAÇ YARIN AKŞAM 22:00" yazar.
+- Yeniden üretmek: `node promo/render.cjs dongu` → `promo/out/taraftar-ligi-dongu.mp4` (önizleme: `node promo/render.cjs dongu --preview`).
 
 ## Diğer yollar
 

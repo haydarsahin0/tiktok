@@ -27,6 +27,7 @@ const ctx = cv.getContext('2d');
 // vo-cues.json: seslendirmedeki her kelimenin başlangıç/bitiş zamanı (Whisper + enerji analiziyle).
 // Bütün animasyonlar ve altyazılar bu zamanlara bağlıdır.
 const VO_OFFSET = 0.6; // seslendirme videonun 0,6. saniyesinde başlar (top önce düşsün)
+const PROMO = { vo: 'seslendirme.mp3', voOffset: VO_OFFSET, voTrim: 0, out: 'taraftar-ligi-tanitim.mp4' };
 const VO = (() => { try { const x = new XMLHttpRequest(); x.open('GET', 'vo-cues.json', false); x.send(); return JSON.parse(x.responseText); } catch { return null; } })();
 const norm = (w) => w.toLocaleLowerCase('tr-TR').replace(/[^a-zçğıöşü0-9']/g, '');
 function cue(word, nth = 1) {

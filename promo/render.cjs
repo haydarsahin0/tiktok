@@ -1,4 +1,5 @@
-// Tanıtım videosunu üretir: node promo/render.cjs [--preview]
+// Tanıtım videosunu üretir: node promo/render.cjs [sayfa] [--preview]
+//   sayfa: promo (varsayılan, ilk tanıtım) | dongu (döngülü tanıtım)
 // Kareleri (renderFrame) ve sesi (renderAudio) tarayıcıda üretir, ffmpeg ile MP4 yapar.
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -8,6 +9,7 @@ const { execFileSync } = require('child_process');
 const DIR = __dirname;
 const OUT = process.env.OUT || path.join(DIR, 'out');
 const preview = process.argv.includes('--preview');
+const PAGE = process.argv.slice(2).find((a) => !a.startsWith('--')) || 'promo';
 
 // Ekran görüntüsünü tuvale çizip dışa aktarabilmek için sayfa aynı kökenli bir yerel sunucudan açılır
 function serve(root) {
@@ -29,17 +31,18 @@ function serve(root) {
   const p = await b.newPage({ viewport: { width: 540, height: 960 } });
   const errs = [];
   p.on('pageerror', (e) => errs.push(e.message));
-  await p.goto(`http://127.0.0.1:${srv.address().port}/promo/promo.html`);
+  await p.goto(`http://127.0.0.1:${srv.address().port}/promo/${PAGE}.html`);
   await p.evaluate(() => window.ready);
-  const { FPS, DUR, OFF, C } = await p.evaluate(() => ({ FPS, DUR, OFF: VO_OFFSET, C }));
+  const { FPS, DUR, C, PR, PV } = await p.evaluate(() => ({ FPS, DUR, C, PR: PROMO, PV: typeof PREVIEW === 'undefined' ? null : PREVIEW }));
+  const OFF = PR.voOffset, TRIM = PR.voTrim || 0;
   console.log('süre:', DUR, 'sn');
   const grab = (t, q = 0.93) => p.evaluate(([t, q]) => { window.renderFrame(t); return document.getElementById('c').toDataURL('image/jpeg', q); }, [t, q]);
   const save = (file, dataUrl) => fs.writeFileSync(file, Buffer.from(dataUrl.split(',')[1], 'base64'));
 
   if (preview) {
     const times = process.env.TIMES ? process.env.TIMES.split(',').map(Number)
-      : [C.sen + 0.3, C.tiktok + 0.5, C.superlig + 0.6, C.plaka + 0.4, C.taraftari, C.begen + 0.3, C.baski + 0.3, C.uc + 0.2, C.bir + 0.2, C.gol + 0.4, C.gecen + 0.9, C.tablo + 0.6, C.hafta + 0.6, C.celebs + 1.3, C.horon + 0.4, C.aslan + 0.2, C.timsah + 0.3, C.yigido + 0.3, C.saat + 0.6, C.takipEt + 0.6];
-    for (const t of times) save(path.join(OUT, `prev_${t.toFixed(1)}.jpg`), await grab(t, 0.85));
+      : PV || [C.sen + 0.3, C.tiktok + 0.5, C.superlig + 0.6, C.plaka + 0.4, C.taraftari, C.begen + 0.3, C.baski + 0.3, C.uc + 0.2, C.bir + 0.2, C.gol + 0.4, C.gecen + 0.9, C.tablo + 0.6, C.hafta + 0.6, C.celebs + 1.3, C.horon + 0.4, C.aslan + 0.2, C.timsah + 0.3, C.yigido + 0.3, C.saat + 0.6, C.takipEt + 0.6];
+    for (const [i, t] of times.entries()) save(path.join(OUT, `prev_${String(i).padStart(2, '0')}_${t.toFixed(2)}.jpg`), await grab(t, 0.85));
     console.log('önizleme kareleri:', times.length, 'hatalar:', errs);
     await b.close();
     srv.close();
@@ -58,13 +61,13 @@ function serve(root) {
   srv.close();
   console.log('hatalar:', errs);
 
-  const mp4 = path.join(OUT, 'taraftar-ligi-tanitim.mp4');
+  const mp4 = path.join(OUT, PR.out);
   execFileSync('ffmpeg', ['-y', '-v', 'error',
     '-framerate', String(FPS), '-i', path.join(OUT, 'frames', 'f%04d.jpg'),
     '-i', path.join(OUT, 'audio.wav'),
-    '-i', path.join(DIR, 'seslendirme.mp3'),
-    // seslendirme: 0,6 sn gecikmeli, müzik ve efektlerin üstünde; sonra TikTok seviyesine (-14 LUFS)
-    '-filter_complex', `[2:a]adelay=${Math.round(OFF * 1000)}|${Math.round(OFF * 1000)},aformat=channel_layouts=stereo,volume=${process.env.VO_GAIN || '1.6'}[vo];` +
+    '-i', path.join(DIR, PR.vo),
+    // seslendirme: baştaki sessizlik kırpılır, gerekirse geciktirilir, müziğin üstüne biner; sonra TikTok seviyesine (-14 LUFS)
+    '-filter_complex', `[2:a]atrim=start=${TRIM},asetpts=PTS-STARTPTS,adelay=${Math.round(OFF * 1000)}|${Math.round(OFF * 1000)},aformat=channel_layouts=stereo,volume=${process.env.VO_GAIN || PR.voGain || '1.6'}[vo];` +
       '[1:a][vo]amix=inputs=2:normalize=0:duration=first,loudnorm=I=-14:TP=-1.5:LRA=11[a]',
     '-map', '0:v', '-map', '[a]',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-profile:v', 'high',

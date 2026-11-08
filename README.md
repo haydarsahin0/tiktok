@@ -100,6 +100,12 @@ Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya v
   Yeni fotoğraf eklemek için kare bir `.jpg` koyup `public/core/manifest.js` içinde o üyeye `photo: 'img/ad.jpg'` yaz.
 - Üye eklemek, renk ya da yazı değiştirmek: `public/core/manifest.js` (üyeler, renkler) ve `public/manifest/theme.js` (yazılar, kutlamalar).
 
+## 🎬 Tanıtım videosu
+
+- Hazır video: `docs/taraftar-ligi-tanitim.mp4` (dikey 1080x1920, 27 sn, müzik ve efektli, TikTok ses seviyesi -14 LUFS)
+- Kaynak: `promo/promo.html` (sahneler, yazılar, animasyonlar ve ses tek dosyada). Tarayıcıda açınca önizleme olarak oynar.
+- Yeniden üretmek (yazı, saat vb. değiştirdikten sonra): `node promo/render.cjs` → `promo/out/taraftar-ligi-tanitim.mp4`
+
 ## Diğer yollar
 
 Yol 1: Android telefonda Termux (ücretsiz, telefon hem oyunu hem bağlantıyı çalıştırır). Yol 2: kiralık sunucu, TikTok'a doğrudan yayın gönderir (cihaz gerekmez, yayın anahtarı ister).

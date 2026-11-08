@@ -3,14 +3,19 @@ import { Game } from './core/game.js';
 import { startDemo } from './core/demo.js';
 import { connectEuler } from './euler.js';
 import { connectRelay, sameOriginRelay } from './relay-client.js';
-import { loadConfig, browserStorage, channel } from './config.js';
+import { loadConfig, browserStorage, matchdayStorage, channel } from './config.js';
+import { MatchDayGame } from './core/matchday.js';
 import { loadLeague } from './league.js';
 
 export async function startLocal(O) {
   const cfg = loadConfig();
   const bc = channel();
   const league = await loadLeague();
-  const game = new Game({ rules: cfg.rules, storage: browserStorage, roster: league.roster });
+  // Futbol ligi varsayılan olarak Süper Lig Maç Günü modunda oynar
+  const matchday = league.id === 'taraftar' && cfg.mode !== 'classic';
+  const game = matchday
+    ? new MatchDayGame({ rules: cfg.rules, storage: matchdayStorage, roster: league.roster })
+    : new Game({ rules: cfg.rules, storage: browserStorage, roster: league.roster });
 
   // TikTok verisi nereden gelecek?
   //  relay: ücretsiz aktarıcı (Render vb.) — bu sayfa aktarıcıdan açıldıysa adres otomatik
@@ -66,7 +71,9 @@ export async function startLocal(O) {
   } else {
     // Ayar yapılmamışsa ayarlar butonunu göster, demo ile başla ki ekran boş görünmesin
     if (!cfg.demo) document.getElementById('tap')?.classList.add('show');
-    stopDemo = startDemo(game, { speed: 1, roster: league.roster, ...league.demo });
+    // Maç gününde demo izleyiciler o an maçı olan takımları tutsun
+    const favorites = matchday ? game.md.current.matches.flatMap((m) => [m.home, m.away]) : undefined;
+    stopDemo = startDemo(game, { speed: 1, roster: league.roster, ...league.demo, ...(favorites ? { favorites } : {}) });
   }
 
   // Ayarlar sayfasından gelen komutlar
@@ -92,6 +99,7 @@ export async function startLocal(O) {
       stopDemo?.();
       conn?.stop();
       browserStorage.clear();
+      matchdayStorage.clear();
       game.storage = null; // kapanırken eski veriyi geri yazmasın
       location.reload();
     } else if (msg.type === 'reload') {

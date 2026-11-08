@@ -11,6 +11,7 @@ export const DEFAULT_CONFIG = {
   relayKey: '',
   apiKey: '',
   demo: false,
+  mode: 'matchday', // futbol ligi: 'matchday' (Süper Lig maç günü) | 'classic' (klasik yarış)
   audio: { music: true, musicVolume: 0.35, sfx: true, sfxVolume: 0.6 },
   rules: {
     roundMinutes: 60,
@@ -21,6 +22,7 @@ export const DEFAULT_CONFIG = {
     pointsPerShare: 50,
     pointsPerJoin: 10,
     maxUsers: 5000,
+    matchday: { periodMinutes: 10 },
   },
 };
 
@@ -37,11 +39,16 @@ export function saveConfig(cfg) {
   safe(() => localStorage.setItem(KEY, JSON.stringify(cfg)));
 }
 
-export const browserStorage = {
-  read: () => safe(() => localStorage.getItem(SAVE_KEY), null),
-  write: (text) => safe(() => localStorage.setItem(SAVE_KEY, text)),
-  clear: () => safe(() => localStorage.removeItem(SAVE_KEY)),
-};
+export function makeStorage(key) {
+  return {
+    read: () => safe(() => localStorage.getItem(key), null),
+    write: (text) => safe(() => localStorage.setItem(key, text)),
+    clear: () => safe(() => localStorage.removeItem(key)),
+  };
+}
+export const browserStorage = makeStorage(SAVE_KEY);
+// Maç Günü modu kendi kaydını ayrı tutar (puan tablosu, hafta, skorlar)
+export const matchdayStorage = makeStorage(`${LIG_ID}.matchday`);
 
 // Yayın ekranı ile ayarlar sayfası arasında haberleşme (aynı tarayıcıda iki sekme)
 export function channel() {

@@ -59,6 +59,26 @@ Yayın ekranındayken ayarlara dönmek için **sol üst köşeye 3 kez hızlıca
 **İstersen Euler Stream ile:** Ayarlar sayfasında "Euler Stream" seçip ücretli API anahtarını yazabilirsin. Bu durumda Render gerekmez, oyun GitHub Pages'ten de açılabilir: `https://haydarsahin0.github.io/tiktok/`
 (GitHub → Settings → Pages → *Deploy from a branch* → `gh-pages` / root.)
 
+## ⚽ Maç Günü modu (futbol ligi varsayılanı)
+
+Gerçek **Trendyol Süper Lig 2026-27** puan durumundan ve fikstüründen devam eden bir "Taraftar Ligi":
+
+- Başlangıç: Vikipedi'deki gerçek sonuçlardan (7 Kasım 2026 güncellemesi) hesaplanan puan durumu. Örn. Galatasaray 28, Amed 23, Trabzonspor 22.
+- İlk maç günü 11. haftanın oynanmamış 4 maçı (Beşiktaş–Gençlerbirliği, Çorum–Fenerbahçe, Alanya–Trabzonspor, Rizespor–Erzurumspor), sonra 12., 13. ... haftalar gerçek fikstür sırasıyla.
+- Bundan sonraki her sonucu **oyun belirler**, gerçek sonuçlar değil; tablo oyunun maçlarıyla ilerler. 34. hafta bitince sezon şampiyonu ilan edilir ve aynı fikstürle yeni sezon başlar.
+- Her maç günü: haftanın tüm maçları aynı anda, **6 tur x 10 dakika**.
+- İzleyici takımının adını yazar; hediye, beğeni ve takip o turda takımına **baskı puanı** olarak gider.
+- Tur sonunda maçta toplam en az **500 puan** varsa: **%65+** alan takım **gol** atar, **%85+** alırsa **2 gol**.
+- Büyük dörtten biri (GS, FB, BJK, TS) Anadolu takımıyla oynuyorsa Anadolu takımının puanı **x1,5** sayılır.
+- Maç bitince 3/1/0 puanla tablo güncellenir, 25 saniyelik "hafta sonuçları" ekranından sonra sıradaki hafta başlar.
+- Maçı olmayan takımın taraftarının hediyesi boşa gitmez: bekletilir, "maçı olan bir takımın adını yaz" denir. Maç arasında atılan hediye yeni haftaya saklanır.
+- Her golde takımın özel kutlaması (horon, aslan, timsah...) ve gol kartı çıkar.
+- Ekran: solda maçlar (canlı skor + baskı çubuğu), sağda canlı puan durumu, altta son goller.
+- Ayarlar → Oyun modu: **Maç Günü** ya da **Klasik yarış**; maç turu süresi değiştirilebilir. "Turu bitir" butonu o 10 dakikalık turu hemen bitirir (test için).
+- Maç günü kaydı ayrıdır: "Tüm kayıtları sil" ile en baştan (gerçek tablodan) yeniden başlar.
+- Puan durumu verisini yenilemek için (sadece ilk başlangıç için kullanılır): `python3 scripts/superlig-guncelle.py`
+- Not: Bilgisayardan/kiralık sunucudan doğrudan yayın modu (Yol 2) şimdilik klasik yarışı gösterir.
+
 ## ⭐ Manifest Ligi (ikinci oyun)
 
 Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya ve Sueda** yarışır, hayranlar hediyeleriyle favorilerini yükseltir.
@@ -247,7 +267,9 @@ Ekranda kulüp logoları kullanılmıyor (telif/marka sorunu olmasın diye); tak
 ## Dosyalar
 
 ```
-public/core/     oyun mantığı, futbol (teams.js) ve Manifest (manifest.js) kadroları, isim tanıma (roster.js)
+public/core/     oyun mantığı, futbol (teams.js) ve Manifest (manifest.js) kadroları, isim tanıma (roster.js),
+                 maç günü (matchday.js) ve gerçek Süper Lig verisi (superlig-data.js)
+scripts/        superlig-guncelle.py: Süper Lig verisini Vikipedi'den yeniler
 public/manifest/ Manifest Ligi sayfası ve teması
 public/page.js  yayın sayfalarının ortak davranışı (tam ekran, ekran kapanmasın, gizli ayarlar)
 public/local.js sunucusuz mod (GitHub Pages / tablet)

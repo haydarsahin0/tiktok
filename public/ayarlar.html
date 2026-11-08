@@ -66,6 +66,15 @@
 
   <section>
     <h2>2. Oyun kuralları</h2>
+    <div id="modeBox">
+      <label>Oyun modu</label>
+      <label class="choice"><input type="radio" name="mode" value="matchday" /> <b>Maç Günü</b> — gerçek Süper Lig puan durumu ve fikstüründen devam (önerilen)</label>
+      <label class="choice"><input type="radio" name="mode" value="classic" /> Klasik yarış — en çok puanı toplayan takım şampiyon</label>
+      <div class="grid" id="mdBox" style="margin:6px 0 12px">
+        <div><label for="periodMinutes">Maç turu (dk) — maçta 6 tur</label><input id="periodMinutes" type="number" min="1" /></div>
+      </div>
+      <p class="hint" id="mdHint">Turu %65+ alan takım gol atar, %85+ = 2 gol. Turda en az 500 puan gerekir. Büyük dörtle oynayan Anadolu takımının puanı x1,5 sayılır.</p>
+    </div>
     <div class="grid">
       <div><label for="roundMinutes">Tur süresi (dk, 0 = bitmez)</label><input id="roundMinutes" type="number" min="0" /></div>
       <div><label for="pointsPerCoin">1 jeton = puan</label><input id="pointsPerCoin" type="number" min="0" /></div>
@@ -185,6 +194,18 @@
     }
   };
   for (const k of RULES) $(k).value = cfg.rules[k];
+  // Oyun modu (sadece futbol ligi)
+  $('periodMinutes').value = cfg.rules.matchday?.periodMinutes ?? 10;
+  document.querySelector(`input[name=mode][value=${cfg.mode === 'classic' ? 'classic' : 'matchday'}]`).checked = true;
+  const showMode = () => {
+    const md = LIG_ID !== 'manifest' && document.querySelector('input[name=mode]:checked')?.value !== 'classic';
+    $('modeBox').hidden = LIG_ID === 'manifest'; // Manifest liginde maç günü yok
+    $('mdBox').hidden = !md;
+    $('mdHint').hidden = !md;
+    $('roundMinutes').closest('div').hidden = md; // maç gününde tur süresi = maç turu
+  };
+  document.querySelectorAll('input[name=mode]').forEach((r) => { r.onchange = showMode; });
+  showMode();
 
   const bc = channel();
 
@@ -231,7 +252,12 @@
       relayUrl: relayBase($('relayUrl').value),
       relayKey: $('relayKey').value.trim(),
       demo: $('demo').checked,
-      rules: { ...cfg.rules, ...Object.fromEntries(RULES.map((k) => [k, Math.max(0, Number($(k).value) || 0)])) },
+      rules: {
+        ...cfg.rules,
+        ...Object.fromEntries(RULES.map((k) => [k, Math.max(0, Number($(k).value) || 0)])),
+        matchday: { ...(cfg.rules.matchday || {}), periodMinutes: Math.max(1, Number($('periodMinutes').value) || 10) },
+      },
+      mode: document.querySelector('input[name=mode]:checked')?.value || 'matchday',
     };
     const missing = !next.username ? 'Kullanıcı adı'
       : next.source === 'euler' && !next.apiKey ? 'Euler API anahtarı'

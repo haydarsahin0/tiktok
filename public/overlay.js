@@ -57,6 +57,15 @@
     kings: { y: 1178, h: 82 },
   };
   const RING = { cx: 540, cy: L.stadium.cy, rx: 466, ry: 158 };
+  // Maç Günü düzeni (çekirdek içi): solda maçlar, sağda puan durumu, altta gol akışı
+  const MD = {
+    top: 110,
+    bottom: 802,
+    matches: { x: 20, w: 668 },
+    table: { x: 700, w: 360 },
+    eventTop: 812,
+    eventY: 911,
+  };
   const PITCH = { w: 540, h: 172 };
 
   // ---------- takıma özel kutlamalar ----------
@@ -144,6 +153,10 @@
   let goalText = null;
   let tickerX = 0;
   let lastOrder = null;
+  const goalFlash = new Map(); // maç anahtarı -> {at, team}
+  let lastGoalPeriod = null;
+  const tableY = new Map(); // puan tablosunda kayarak yer değiştirme
+  const bannerY = () => (state?.mode === 'matchday' ? MD.eventY : RING.cy);
   const imgCache = new Map();
 
   const serverNow = () => Date.now() + timeOffset;
@@ -235,7 +248,35 @@
         break;
       }
       case 'leader':
+        if (state?.mode === 'matchday' && !e.force) break; // maç gününde liderlik değil, goller kutlanır
         startCelebration(e.team, e.force);
+        break;
+      case 'goal': {
+        // Gol kartları hediye kartlarının önüne geçer (gösterilmekte olan kart bitince sıradaki gol)
+        let at = Math.min(1, banners.length);
+        while (at < banners.length && banners[at].kind === 'goal') at += 1;
+        banners.splice(at, 0, { kind: 'goal', e, dur: 3400 });
+        trimBanners(14);
+        goalFlash.set(`${e.home}-${e.away}`, { at: performance.now(), team: e.team });
+        // Her turun ilk golünde o takımın kutlaması
+        const key = `${e.period}`;
+        if (lastGoalPeriod !== key) { lastGoalPeriod = key; startCelebration(e.team, true, `${upper(team(e.team).name)} ${e.double ? 'ÇİFTE GOL!' : 'GOLÜ!'}`); }
+        break;
+      }
+      case 'periodEnd':
+        toast(e.goals ? `⏱️ ${e.period}. tur bitti • ${e.goals} gol!` : `⏱️ ${e.period}. tur bitti • gol yok`, null);
+        break;
+      case 'matchdayStart':
+        toast(`🟢 ${e.week}. hafta başladı! Takımının adını yaz, maçında destek ol!`, null);
+        lastGoalPeriod = null;
+        break;
+      case 'notPlaying':
+        if (e.points) { banners.push({ kind: 'notPlaying', e, dur: 3500 }); trimBanners(); }
+        else toast(`${e.user.name}: bugün ${team(e.team).short} oynamıyor, maçı olan takımı yaz!`, e.team);
+        break;
+      case 'seasonEnd':
+        banners.push({ kind: 'season', e, dur: 6000 });
+        sfx('champion');
         break;
       case 'champion':
         celeb = null;
@@ -249,8 +290,8 @@
     }
   }
 
-  function trimBanners() {
-    if (banners.length > 6) banners.splice(1, banners.length - 6);
+  function trimBanners(max = 6) {
+    if (banners.length > max) banners.splice(1, banners.length - max);
   }
 
   function toast(text, teamId) {
@@ -285,7 +326,7 @@
     if (particles.length > 900) particles.splice(0, particles.length - 900);
   }
 
-  function startCelebration(teamId, force = false) {
+  function startCelebration(teamId, force = false, sub = null) {
     const now = performance.now();
     if (!force && now - lastCelebAt < CELEB_COOLDOWN) {
       // Çok sık lider değişiyorsa: sadece kısa "zirve değişti" yazısı
@@ -295,7 +336,7 @@
     }
     lastCelebAt = now;
     const cfg = T.celebrations[teamId] || T.defaultCelebration;
-    celeb = { team: teamId, cfg, start: now, dur: CELEB_DUR, pulses: 0, bolts: [], fired: 0 };
+    celeb = { team: teamId, cfg, start: now, dur: CELEB_DUR, pulses: 0, bolts: [], fired: 0, sub };
     flash = null;
     if (cfg.kind === 'roar') shakeUntil = now + 1100;
     bounceTeam(teamId);
@@ -580,10 +621,13 @@
       ctx.beginPath(); ctx.arc(81, cy, 24, 0, Math.PI * 2); ctx.fill();
       text('⚽', 74, cy + 2, { size: 30 });
     }
-    text(T.title, 118, cy - 16, { size: 48, align: 'left', stroke: 8, max: W - 300 });
+    text(T.title, 118, cy - 16, { size: 48, align: 'left', stroke: 8, max: state?.mode === 'matchday' && state.live?.state !== 'connected' ? 360 : W - 300 });
     const round = state?.round?.number ?? 1;
     const fanTotal = state ? state.teams.reduce((s, t) => s + t.fans, 0) : 0;
-    text(`TUR ${round}  •  ${fmt(fanTotal)} ${T.fansLabel}`, 120, cy + 26, { size: 24, weight: 600, align: 'left', color: '#ffe3e8' });
+    const sub = state?.mode === 'matchday'
+      ? `${state.md.season} • ${state.md.week}. HAFTA • ${state.md.phase === 'playing' ? `${state.md.period}. TUR` : 'MAÇ SONU'}  •  ${fmt(fanTotal)} ${T.fansLabel}`
+      : `TUR ${round}  •  ${fmt(fanTotal)} ${T.fansLabel}`;
+    text(sub, 120, cy + 26, { size: 24, weight: 600, align: 'left', color: '#ffe3e8', max: W - 330 });
 
     // tur sayacı
     const cx = W - 76;
@@ -592,7 +636,12 @@
     const r = state?.round;
     let label = '∞';
     let frac = 1;
-    if (r && r.endsAt) {
+    const brk = state?.mode === 'matchday' && state.md.phase === 'break';
+    if (brk) {
+      const left = Math.max(0, state.md.breakUntil - serverNow());
+      frac = clamp(left / ((state.md.rules?.breakSeconds ?? 25) * 1000), 0, 1);
+      label = `${Math.ceil(left / 1000)} sn`;
+    } else if (r && r.endsAt) {
       const left = Math.max(0, r.endsAt - serverNow());
       frac = clamp(left / (r.endsAt - r.startedAt), 0, 1);
       const m = Math.floor(left / 60000);
@@ -605,7 +654,7 @@
     ctx.strokeStyle = frac < 0.1 ? '#ff4d4d' : '#ffd400';
     ctx.lineCap = 'round'; ctx.stroke(); ctx.lineCap = 'butt';
     text(label, cx, cy - 4, { size: 24, max: 66 });
-    text('TUR', cx, cy + 20, { size: 13, weight: 600, color: '#aab' });
+    text(brk ? 'ARA' : 'TUR', cx, cy + 20, { size: 13, weight: 600, color: '#aab' });
   }
 
   // ---------- çekirdek: puan yarışı (sütunlar + kaptanlar) ----------
@@ -1028,7 +1077,7 @@
       });
     }
 
-    titleBand(tm, cfg.title, T.leaderSub(upper(tm.name)), p);
+    titleBand(tm, cfg.title, celeb.sub || T.leaderSub(upper(tm.name)), p);
   }
 
   function drawEmojiParts(dt) {
@@ -1078,10 +1127,15 @@
     if (p >= 1) { banners.shift(); return; }
     const a = p < 0.08 ? p / 0.08 : p > 0.88 ? (1 - p) / 0.12 : 1;
     const e = b.e;
-    const tm = b.kind === 'need' ? { colors: ['#f5b400', '#7a4a00'], name: '', code: '?' } : team(e.team);
+    if (!b.sounded) {
+      b.sounded = true;
+      if (b.kind === 'goal') sfx('gift', e.double ? 20000 : 8000);
+    }
+    if (b.kind === 'goal' || b.kind === 'season') { drawGoalCard(b, p, a); return; }
+    const tm = b.kind === 'need' || b.kind === 'notPlaying' ? { colors: ['#f5b400', '#7a4a00'], name: '', code: '?' } : team(e.team);
     ctx.save();
     ctx.globalAlpha = a;
-    const y = RING.cy + (1 - ease(Math.min(1, p * 8))) * 50;
+    const y = bannerY() + (1 - ease(Math.min(1, p * 8))) * 50;
     ctx.translate(W / 2, y);
     const g = ctx.createLinearGradient(-400, 0, 400, 0);
     if (b.kind === 'captain') {
@@ -1094,7 +1148,7 @@
     rr(-410, -84, 820, 168, 30);
     ctx.fillStyle = g; ctx.fill();
     ctx.lineWidth = 7; ctx.strokeStyle = b.kind === 'captain' ? tm.colors[0] : tm.colors[1]; ctx.stroke();
-    avatar(e.user, -320, 0, 54, b.kind === 'need' ? { colors: ['#333', '#ffd400'] } : tm);
+    avatar(e.user, -320, 0, 54, b.kind === 'need' || b.kind === 'notPlaying' ? { colors: ['#333', '#ffd400'] } : tm);
     if (b.kind === 'captain') {
       armband(-280, -40, 18);
       text(T.captainCard, -238, -44, { size: 36, align: 'left', color: '#111', max: 560 });
@@ -1109,6 +1163,14 @@
         text(`${e.gift}${e.count > 1 ? ` x${e.count}` : ''}  →  ${upper(tm.name)}`, -240, 4, { size: 30, weight: 700, align: 'left', stroke: 6, max: 600 });
         text(`+${fmt(e.points)} PUAN`, -240, 50, { size: 46, align: 'left', stroke: 8, color: '#ffd400' });
         badge(tm, 330, 38, 40);
+      } else if (b.kind === 'notPlaying') {
+        if (e.reason === 'break') {
+          text(`Maç arası • ${fmt(e.points)} puan yeni haftaya saklandı`, -240, 6, { size: 28, weight: 700, align: 'left', stroke: 6, max: 620 });
+          text('⏳ Yeni hafta başlayınca takımına eklenecek!', -240, 50, { size: 30, align: 'left', stroke: 7, color: '#ffd400', max: 620 });
+        } else {
+          text(`Bugün oynamıyor: ${team(e.team).name} • ${fmt(e.points)} puan bekliyor`, -240, 6, { size: 28, weight: 700, align: 'left', stroke: 6, max: 620 });
+          text('👇 Maçı olan bir takımın adını yaz!', -240, 50, { size: 32, align: 'left', stroke: 7, color: '#ffd400', max: 620 });
+        }
       } else {
         text(`${e.gift} gönderdi • ${fmt(e.points)} puan bekliyor!`, -240, 6, { size: 30, weight: 700, align: 'left', stroke: 6, max: 620 });
         text(T.needLine, -240, 50, { size: 32, align: 'left', stroke: 7, color: '#ffd400', max: 620 });
@@ -1148,11 +1210,19 @@
     ctx.fillRect(x - r * 0.14, y - r * 0.55, r * 0.28, r * 1.1);
   }
 
-  function drawInfo() {
+  function ballIcon(x, y, r) {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.lineWidth = Math.max(1.5, r * 0.12); ctx.strokeStyle = '#111'; ctx.stroke();
+    starPath(x, y, r * 0.5, 10, 0.75);
+    ctx.fillStyle = '#111'; ctx.fill();
+  }
+
+  function drawInfo({ line1 = T.instruction, line3 = T.captainLine, icon3 = (x, y) => armband(x, y, 13) } = {}) {
     const { y, h } = L.info;
     rr(20, y, W - 40, h, 26);
     ctx.fillStyle = T.infoColor; ctx.fill();
-    text(T.instruction, W / 2, y + 30, { size: 34, color: '#111', max: W - 80 });
+    text(line1, W / 2, y + 30, { size: 34, color: '#111', max: W - 80 });
     // Puan satırı: emoji yok (her telefonda farklı genişlikte çiziliyordu); simgeler elle çizilir,
     // her bilgi kendi üçte birlik bölümünde ortalanır, taşamaz.
     const r = state?.rules || { pointsPerCoin: 100, pointsPerLike: 1, pointsPerFollow: 50 };
@@ -1172,22 +1242,22 @@
       if (i) { ctx.fillStyle = 'rgba(58,42,0,.35)'; ctx.fillRect(40 + colW * i - 1, y + 56, 2, 26); }
     });
     // Kaptan satırı: emoji yerine sütunlardaki sarı "C" bandı (her telefonda aynı görünür)
-    const msg = T.captainLine;
+    const msg = line3;
     ctx.font = `800 26px ${FONT}`;
-    const tw = ctx.measureText(msg).width;
+    const tw = Math.min(ctx.measureText(msg).width, W - 160);
     const total = tw + 40;
     const x0 = W / 2 - total / 2;
     rr(x0 - 14, y + 86, total + 28, 34, 17);
     ctx.fillStyle = 'rgba(122,30,0,.14)'; ctx.fill();
-    armband(x0 + 13, y + 103, 13);
-    text(msg, x0 + 40, y + 104, { size: 26, color: '#7a1e00', align: 'left' });
+    icon3(x0 + 13, y + 103);
+    text(msg, x0 + 40, y + 104, { size: 26, color: '#7a1e00', align: 'left', max: W - 160 });
   }
 
   // Krallar ve kupalar: tek sıra, kompakt
-  function drawKings() {
+  function drawKings({ leftTitle = T.kingsTitle, rightTitle = T.trophiesTitle, drawRight = null } = {}) {
     const { y, h } = L.kings;
     const pw = (W - 60) / 2;
-    for (const [i, title] of [[0, T.kingsTitle], [1, T.trophiesTitle]]) {
+    for (const [i, title] of [[0, leftTitle], [1, rightTitle]]) {
       const x = 20 + i * (pw + 20);
       rr(x, y, pw, h, 22);
       ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
@@ -1205,6 +1275,7 @@
       text(fmt(m.points), ex + 42, y + 66, { size: 16, weight: 700, align: 'left', color: '#9f9', max: slot - 48 });
     });
     const x2 = 40 + pw;
+    if (drawRight) { drawRight(x2, y, pw, h); return; }
     const tr = state.trophies.slice(0, 3);
     if (!tr.length) text('İlk kupa kimin olacak?', x2 + pw / 2, y + 54, { size: 21, weight: 600, color: '#ccd' });
     tr.forEach((t, i) => {
@@ -1223,9 +1294,11 @@
     rr(20, y, W - 40, 46, 23);
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
     if (!state) return;
-    const rest = state.teams.slice(TOP_N).filter((t) => t.points > 0);
+    const rest = state.mode === 'matchday' ? [] : state.teams.slice(TOP_N).filter((t) => t.points > 0);
     const all = T.tickerAll(teamOrder.map((id) => team(id).name));
-    let msg = rest.length
+    let msg = state.mode === 'matchday'
+      ? `${state.md.week}. HAFTA: ${state.md.matches.map((m) => `${team(m.home).name} ${m.hg}-${m.ag} ${team(m.away).name}`).join('   ⚽   ')}`
+      : rest.length
       ? `${rest.slice(0, 25).map((t, i) => `${TOP_N + i + 1}. ${team(t.id).name} ${fmt(t.points)}`).join('   ⚽   ')}${rest.length < 4 ? `      ${all}` : ''}`
       : all;
     msg += '      ';
@@ -1260,9 +1333,13 @@
     }[live.state] || live.state;
     ctx.font = `700 19px ${FONT}`;
     const lw = Math.max(280, ctx.measureText(label).width + 36);
-    rr(W / 2 - lw / 2, L.raceTop + 8, lw, 28, 14);
+    const isMd = state?.mode === 'matchday';
+    const pw2 = isMd ? Math.min(lw, 400) : lw;
+    const sx = isMd ? W - 150 - pw2 / 2 : W / 2;
+    const sy = isMd ? 34 : L.raceTop + 22;
+    rr(sx - pw2 / 2, sy - 14, pw2, 28, 14);
     ctx.fillStyle = live.state === 'demo' || live.state === 'setup' ? 'rgba(80,80,255,.85)' : 'rgba(200,60,0,.9)'; ctx.fill();
-    text(label, W / 2, L.raceTop + 23, { size: 19, weight: 700 });
+    text(label, sx, sy + 1, { size: 19, weight: 700, max: pw2 - 24 });
   }
 
   function drawChampion(now) {
@@ -1305,6 +1382,252 @@
     text(T.nextRound(left), W / 2, 1010, { size: 32, weight: 700, stroke: 6, max: W - 60 });
     return true;
   }
+
+  // ================= MAÇ GÜNÜ =================
+  const pct = (x) => `%${Math.round(x * 100)}`;
+
+  function drawMatchday(now) {
+    const md = state.md;
+    if (md.phase === 'break') drawBreak(now, md);
+    else drawMatchesPanel(now, md);
+    drawTablePanel(now, md);
+    drawEventZone(now, md);
+  }
+
+  function drawMatchesPanel(now, md) {
+    const { x, w } = MD.matches;
+    const top = MD.top;
+    const h = MD.bottom - top;
+    rr(x, top, w, h, 24);
+    ctx.fillStyle = 'rgba(0,0,0,.42)'; ctx.fill();
+    text(`${md.week}. HAFTA`, x + 20, top + 24, { size: 26, align: 'left', color: '#ffd400', stroke: 5 });
+    const live = md.phase === 'playing';
+    text(live ? `CANLI • ${md.period}. TUR / ${md.periods}` : 'MAÇ SONU', x + w - 20, top + 24, { size: 22, weight: 700, align: 'right', color: live ? '#7dff9a' : '#ffb3b3' });
+    if (live) { ctx.beginPath(); ctx.arc(x + w - 20 - measure(`CANLI • ${md.period}. TUR / ${md.periods}`, 22) - 14, top + 24, 6, 0, Math.PI * 2); ctx.fillStyle = Math.floor(now / 500) % 2 ? '#ff3b3b' : '#a00'; ctx.fill(); }
+
+    const n = md.matches.length;
+    const areaTop = top + 46;
+    const rowH = Math.min(96, (h - 54) / Math.max(1, n));
+    md.matches.forEach((m, i) => drawMatchRow(now, m, x + 10, areaTop + i * rowH, w - 20, rowH - 6, md));
+  }
+
+  function measure(str, size, weight = 700) {
+    ctx.font = `${weight} ${size}px ${FONT}`;
+    return ctx.measureText(str).width;
+  }
+
+  function drawMatchRow(now, m, x, y, w, h, md) {
+    const home = team(m.home);
+    const away = team(m.away);
+    const flash = goalFlash.get(`${m.home}-${m.away}`);
+    const fl = flash ? clamp(1 - (now - flash.at) / 3000, 0, 1) : 0;
+    rr(x, y, w, h, 14);
+    ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fill();
+    if (fl) {
+      ctx.save();
+      ctx.globalAlpha = fl * 0.55;
+      rr(x, y, w, h, 14);
+      ctx.fillStyle = team(flash.team).colors[0]; ctx.fill();
+      ctx.restore();
+    }
+    const cy = y + Math.min(24, h * 0.34);
+    const cx = x + w / 2;
+    const nameMax = w / 2 - 110;
+    // ev sahibi
+    badge(home, x + 22, cy, 15);
+    text(home.short, x + 44, cy + 1, { size: 23, align: 'left', stroke: 5, max: nameMax });
+    // deplasman
+    badge(away, x + w - 22, cy, 15);
+    text(away.short, x + w - 44, cy + 1, { size: 23, align: 'right', stroke: 5, max: nameMax });
+    // skor
+    rr(cx - 48, cy - 19, 96, 38, 10);
+    ctx.fillStyle = '#0b0f1a'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.stroke();
+    text(`${m.hg} - ${m.ag}`, cx, cy + 1, { size: 28 });
+    // x1,5 etiketi
+    const tag = (tx, ty) => { rr(tx - 22, ty - 10, 44, 20, 10); ctx.fillStyle = '#ffd400'; ctx.fill(); text('x1,5', tx, ty + 1, { size: 15, color: '#111' }); };
+    if (m.mult?.home > 1) tag(cx - 76, cy);
+    if (m.mult?.away > 1) tag(cx + 76, cy);
+
+    if (md.phase !== 'playing' || h < 40) return;
+    const compact = h < 78; // 7+ maçlı haftalarda satırlar dar: sadece çubuk ve gol uyarısı
+    const bh = compact ? 10 : 12;
+    const by = y + h - (compact ? 16 : 24);
+    const bx = x + 16;
+    const bw = w - 32;
+    const share = clamp(m.share ?? 0.5, 0, 1);
+    rr(bx, by, bw, bh, bh / 2);
+    ctx.save(); ctx.clip();
+    ctx.fillStyle = home.colors[0]; ctx.fillRect(bx, by, bw * share, bh);
+    ctx.fillStyle = away.colors[0] === home.colors[0] ? away.colors[1] : away.colors[0];
+    ctx.fillRect(bx + bw * share, by, bw * (1 - share), bh);
+    ctx.restore();
+    rr(bx, by, bw, bh, bh / 2); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.stroke();
+    // %35 ve %65 çizgileri (gol eşikleri)
+    const g = md.rules?.goalShare ?? 0.65;
+    ctx.fillStyle = '#fff';
+    for (const t of [1 - g, g]) ctx.fillRect(bx + bw * t - 1, by - 3, 2, bh + 6);
+    const tp = m.hp + m.ap;
+    if (!compact) {
+      if (tp > 0) {
+        text(`${pct(share)} • ${fmt(m.hp)}`, bx, by - 9, { size: 15, weight: 700, align: 'left', color: '#dfe8ff' });
+        text(`${fmt(m.ap)} • ${pct(1 - share)}`, bx + bw, by - 9, { size: 15, weight: 700, align: 'right', color: '#dfe8ff' });
+      } else {
+        text('yorum yaz, hediye at — baskıyı başlat!', cx, by - 9, { size: 15, weight: 600, color: '#aab4c8' });
+      }
+    }
+    // Şu an tur bitse gol olur mu? (çubuğun ortasında)
+    if (m.count) {
+      const pulse = 1 + Math.sin(now / 160) * 0.1;
+      const lx = m.scorer === 'home' ? bx + bw * 0.25 : bx + bw * 0.75;
+      ctx.save();
+      ctx.translate(lx, by + bh / 2);
+      ctx.scale(pulse, pulse);
+      rr(-60, -11, 120, 22, 11);
+      ctx.fillStyle = m.count === 2 ? '#ff3b3b' : '#1fbf5b'; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+      text(m.count === 2 ? 'ÇİFTE GOL!' : 'GOL YOLDA!', 0, 1, { size: 14, color: '#fff' });
+      ctx.restore();
+    }
+  }
+
+  function drawTablePanel(now, md) {
+    const { x, w } = MD.table;
+    const top = MD.top;
+    const h = MD.bottom - top;
+    rr(x, top, w, h, 24);
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
+    text('PUAN DURUMU', x + 16, top + 24, { size: 22, align: 'left', color: '#ffd400' });
+    text(md.phase === 'playing' ? 'canlı' : '', x + w - 16, top + 24, { size: 16, weight: 700, align: 'right', color: '#7dff9a' });
+    const rows = md.table;
+    const rowH = Math.min(36, (h - 66) / Math.max(1, rows.length));
+    const hy = top + 50;
+    const colO = x + w - 112;
+    const colAV = x + w - 66;
+    const colP = x + w - 22;
+    text('O', colO, hy, { size: 15, weight: 700, color: '#aab' });
+    text('AV', colAV, hy, { size: 15, weight: 700, color: '#aab' });
+    text('P', colP, hy, { size: 15, weight: 700, color: '#aab' });
+    const k = 0.12;
+    rows.forEach((r, i) => {
+      const target = hy + 14 + i * rowH;
+      const yy = lerp(tableY.get(r.id) ?? target, target, k);
+      tableY.set(r.id, yy);
+      const cy = yy + rowH / 2;
+      // bölge rengi: 1 = Şampiyonlar Ligi, 2-3 = elemeler, 4 = Konferans, son 3 = düşme
+      const zone = i === 0 ? '#1fbf5b' : i < 3 ? '#4fd27d' : i === 3 ? '#3a8dff' : i >= rows.length - 3 ? '#e5484d' : null;
+      if (zone) { ctx.fillStyle = zone; ctx.fillRect(x + 6, yy + 3, 4, rowH - 6); }
+      if (r.playing) {
+        rr(x + 12, yy + 1, w - 18, rowH - 2, 8);
+        ctx.fillStyle = 'rgba(125,255,154,.10)'; ctx.fill();
+      }
+      text(String(i + 1), x + 28, cy + 1, { size: 17, weight: 700, color: '#cfd8e8' });
+      badge(team(r.id), x + 56, cy, 11);
+      text(team(r.id).short, x + 74, cy + 1, { size: 18, weight: 700, align: 'left', max: colO - x - 96, color: r.playing ? '#fff' : '#dfe6f2' });
+      text(String(r.p), colO, cy + 1, { size: 17, weight: 600, color: '#cfd8e8' });
+      text(`${r.gd > 0 ? '+' : ''}${r.gd}`, colAV, cy + 1, { size: 17, weight: 600, color: '#cfd8e8' });
+      text(String(r.pts), colP, cy + 1, { size: 19, weight: 800, color: '#fff' });
+    });
+  }
+
+  function drawEventZone(now, md) {
+    const y = MD.eventTop;
+    const h = 196;
+    rr(20, y, W - 40, h, 24);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fill();
+    const goals = md.recentGoals || [];
+    text('⚽ SON GOLLER', 44, y + 26, { size: 22, align: 'left', color: '#ffd400' });
+    const g = Math.round((md.rules?.goalShare ?? 0.65) * 100);
+    const d = Math.round((md.rules?.doubleShare ?? 0.85) * 100);
+    text(`%${g}+ = GOL • %${d}+ = 2 GOL • turda en az ${fmt(md.rules?.minPeriodPoints ?? 500)} puan`, W - 44, y + 26, { size: 18, weight: 700, align: 'right', color: '#cfe', max: W - 300 });
+    if (!goals.length) {
+      text('Henüz gol yok — takımına destek ol, ilk golü sen attır!', W / 2, y + 110, { size: 26, weight: 700, color: '#dfe6f2', max: W - 100 });
+      return;
+    }
+    goals.slice(0, 4).forEach((gl, i) => {
+      const yy = y + 66 + i * 36;
+      const tm = team(gl.team);
+      badge(tm, 56, yy, 14);
+      const line = `${gl.period}. tur • ${team(gl.home).short} ${gl.hg} - ${gl.ag} ${team(gl.away).short}${gl.double ? '  (çifte gol)' : ''}`;
+      text(line, 80, yy + 1, { size: 22, weight: 700, align: 'left', max: W - 260 });
+      text(`gol: ${tm.short} ${pct(gl.share)}`, W - 44, yy + 1, { size: 18, weight: 700, align: 'right', color: tm.colors[0] === '#111111' ? '#ddd' : '#ffd400' });
+    });
+  }
+
+  function drawBreak(now, md) {
+    const { x, w } = MD.matches;
+    const top = MD.top;
+    const h = MD.bottom - top;
+    ctx.save();
+    rr(x, top, w, h, 24);
+    ctx.fillStyle = 'rgba(5,10,20,.96)'; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,212,0,.6)'; ctx.stroke();
+    const res = md.lastResults;
+    text(`${res?.week ?? md.week}. HAFTA SONUÇLARI`, x + w / 2, top + 40, { size: 34, color: '#ffd400', stroke: 6 });
+    const list = res?.matches || [];
+    const rowH = Math.min(58, (h - 170) / Math.max(1, list.length));
+    list.forEach((m, i) => {
+      const yy = top + 90 + i * rowH;
+      const hw = m.hg > m.ag;
+      const aw = m.ag > m.hg;
+      badge(team(m.home), x + 40, yy, 15);
+      text(team(m.home).short, x + 64, yy + 1, { size: 24, align: 'left', color: hw ? '#7dff9a' : '#fff', max: w / 2 - 130 });
+      text(`${m.hg} - ${m.ag}`, x + w / 2, yy + 1, { size: 28, color: '#fff' });
+      text(team(m.away).short, x + w - 64, yy + 1, { size: 24, align: 'right', color: aw ? '#7dff9a' : '#fff', max: w / 2 - 130 });
+      badge(team(m.away), x + w - 40, yy, 15);
+    });
+    const left = Math.max(0, Math.ceil((md.breakUntil - serverNow()) / 1000));
+    const nx = md.next;
+    text(nx ? `${nx.week}. hafta ${left} sn sonra başlıyor!` : `Yeni hafta ${left} sn sonra`, x + w / 2, top + h - 70, { size: 28, color: '#fff', stroke: 5 });
+    if (nx) text(nx.matches.map((m) => `${team(m.home).short}–${team(m.away).short}`).join('  •  '), x + w / 2, top + h - 32, { size: 20, weight: 700, color: '#cfe', max: w - 40 });
+    ctx.restore();
+  }
+
+  function drawGoalCard(b, p, a) {
+    const e = b.e;
+    ctx.save();
+    ctx.globalAlpha = a;
+    const y = bannerY() + (1 - ease(Math.min(1, p * 8))) * 40;
+    ctx.translate(W / 2, y);
+    if (b.kind === 'season') {
+      const tm = team(e.champion);
+      const g = ctx.createLinearGradient(-400, 0, 400, 0);
+      g.addColorStop(0, '#ffd400'); g.addColorStop(1, '#b8860b');
+      rr(-450, -86, 900, 172, 30); ctx.fillStyle = g; ctx.fill();
+      badge(tm, -360, 0, 56);
+      text(`${e.season} SEZONU ŞAMPİYONU`, -280, -36, { size: 34, align: 'left', color: '#111', max: 700 });
+      text(upper(tm.name), -280, 22, { size: 54, align: 'left', stroke: 8, max: 700 });
+      text('🏆 Yeni sezon başlıyor!', -280, 64, { size: 24, weight: 700, align: 'left', color: '#3a2a00' });
+      ctx.restore();
+      return;
+    }
+    const tm = team(e.team);
+    const g = ctx.createLinearGradient(-400, 0, 400, 0);
+    g.addColorStop(0, tm.colors[0]);
+    g.addColorStop(1, shadeColor(tm.colors[0], -0.5));
+    rr(-450, -86, 900, 172, 30); ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = 7; ctx.strokeStyle = tm.colors[1]; ctx.stroke();
+    drawIcon(tm, -360, -62, 110);
+    const s = 1 + Math.sin(p * Math.PI * 6) * 0.05;
+    ctx.save(); ctx.translate(-280, -34); ctx.scale(s, s);
+    text(e.double ? 'ÇİFTE GOL!!' : 'GOOOL!', 0, 0, { size: 52, align: 'left', stroke: 9, color: '#ffd400' });
+    ctx.restore();
+    text(`${team(e.home).short} ${e.hg} - ${e.ag} ${team(e.away).short}`, -280, 24, { size: 44, align: 'left', stroke: 8, max: 690 });
+    text(`${e.period}. tur • ${tm.short} baskısı ${pct(e.share)}`, -280, 64, { size: 24, weight: 700, align: 'left', color: '#fff', stroke: 5, max: 690 });
+    ctx.restore();
+  }
+
+  function drawNextWeek(x2, y, pw) {
+    const nx = state.md?.next;
+    if (!nx) { text('Sezonun son haftası!', x2 + pw / 2, y + 54, { size: 20, weight: 600, color: '#ccd' }); return; }
+    text(`${nx.week}. hafta`, x2 + pw - 18, y + 18, { size: 16, weight: 700, align: 'right', color: '#aab' });
+    nx.matches.slice(0, 2).forEach((m, i) => {
+      const yy = y + 46 + i * 24;
+      text(`${team(m.home).short} – ${team(m.away).short}`, x2 + 22, yy, { size: 18, weight: 700, align: 'left', max: pw - 40 });
+    });
+  }
+
+  // ================= /MAÇ GÜNÜ =================
 
   function drawParticles(dt) {
     const f = dt / 16.7;
@@ -1353,7 +1676,21 @@
     ctx.translate(0, CORE_Y);
     if (now < shakeUntil) ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
     const champ = state?.champion && state.championUntil && serverNow() <= state.championUntil;
-    if (!champ) {
+    if (state?.mode === 'matchday') {
+      drawHeader();
+      drawMatchday(now);
+      drawCelebration(now);
+      drawEmojiParts(dt);
+      drawBanners(now);
+      const md = state.md.rules || {};
+      drawInfo({
+        line1: 'Takımının ADINI yaz → MAÇINDA DESTEK OL!',
+        line3: `Turu %${Math.round((md.goalShare ?? 0.65) * 100)}+ alan GOL atar • %${Math.round((md.doubleShare ?? 0.85) * 100)}+ = 2 GOL • Anadolu x${String(md.underdogBonus ?? 1.5).replace('.', ',')}`,
+        icon3: (x, y) => ballIcon(x, y, 12),
+      });
+      drawKings({ leftTitle: '👑 MAÇ GÜNÜ KRALLARI', rightTitle: '🔜 SIRADAKİ HAFTA', drawRight: drawNextWeek });
+      drawStatus();
+    } else if (!champ) {
       drawHeader();
       drawRace(now, dt);
       drawStadium(now, dt);

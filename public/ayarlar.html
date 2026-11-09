@@ -195,7 +195,7 @@
   };
   for (const k of RULES) $(k).value = cfg.rules[k];
   // Oyun modu (sadece futbol ligi)
-  $('periodMinutes').value = cfg.rules.matchday?.periodMinutes ?? 10;
+  $('periodMinutes').value = cfg.rules.matchday?.periodMinutes ?? 25;
   document.querySelector(`input[name=mode][value=${cfg.mode === 'classic' ? 'classic' : 'matchday'}]`).checked = true;
   const showMode = () => {
     const md = LIG_ID !== 'manifest' && document.querySelector('input[name=mode]:checked')?.value !== 'classic';
@@ -255,7 +255,7 @@
       rules: {
         ...cfg.rules,
         ...Object.fromEntries(RULES.map((k) => [k, Math.max(0, Number($(k).value) || 0)])),
-        matchday: { ...(cfg.rules.matchday || {}), periodMinutes: Math.max(1, Number($('periodMinutes').value) || 10) },
+        matchday: { ...(cfg.rules.matchday || {}), periodMinutes: Math.max(1, Number($('periodMinutes').value) || 25) },
       },
       mode: document.querySelector('input[name=mode]:checked')?.value || 'matchday',
     };

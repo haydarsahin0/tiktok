@@ -1,5 +1,5 @@
 // Maç Günü modu: gerçek Süper Lig puan durumu ve fikstüründen devam eden "Taraftar Ligi".
-// Her maç günü sıradaki haftanın maçları aynı anda oynanır: 6 tur x 10 dk.
+// Her maç günü sıradaki haftanın maçları aynı anda oynanır: 6 tur x 25 dk.
 // Bir turda maçın toplam puanının %65'inden fazlasını alan takım GOL atar (%85+ = 2 gol).
 // Büyük dörtten biri (GS, FB, BJK, TS) Anadolu takımıyla oynuyorsa Anadolu takımının puanı x1,5 sayılır.
 // Maç bitince 3/1/0 puanla tablo güncellenir; tablo oyunun kendi maçlarıyla ilerler.
@@ -7,7 +7,7 @@ import { Game } from './game.js';
 import { SUPERLIG } from './superlig-data.js';
 
 export const MATCHDAY_DEFAULTS = {
-  periodMinutes: 10,
+  periodMinutes: 25,
   periods: 6,
   goalShare: 0.65,
   doubleShare: 0.85,
@@ -17,6 +17,8 @@ export const MATCHDAY_DEFAULTS = {
 };
 
 export const BIG_CLUBS = new Set(['gs', 'fb', 'bjk', 'ts']);
+
+const DATA_ID = `${SUPERLIG.source} — ${SUPERLIG.updated}`;
 
 const emptyRow = () => ({ p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 });
 
@@ -57,7 +59,9 @@ export class MatchDayGame extends Game {
     const md = { ...MATCHDAY_DEFAULTS, ...(rules.matchday || {}) };
     super({ ...opts, rules: { ...rules, roundMinutes: md.periodMinutes } });
     this.mdRules = md;
-    if (!this.md || !this.md.current) this.initFromData();
+    // Gerçek lig verisi güncellendiyse (yeni sonuçlar eklendiyse) eski maç günü kaydı yerine
+    // güncel tablo ve sıradaki haftadan başlanır. Taraftarlar, kaptanlar ve kupalar korunur.
+    if (!this.md || !this.md.current || this.md.source !== DATA_ID) this.initFromData();
     else if (this.md.current.phase === 'playing' && !this.round.endsAt) this.startPeriod();
   }
 
@@ -79,7 +83,7 @@ export class MatchDayGame extends Game {
   initFromData() {
     this.md = {
       season: SUPERLIG.season,
-      source: `${SUPERLIG.source} — ${SUPERLIG.updated}`,
+      source: DATA_ID,
       standings: baseStandings(SUPERLIG),
       queue: pendingWeeks(SUPERLIG),
       current: null,
@@ -214,7 +218,7 @@ export class MatchDayGame extends Game {
     if (this.round.endsAt && t >= this.round.endsAt) this.endPeriod();
   }
 
-  // Yönetim butonları: "turu bitir" = bu 10 dakikalık turu hemen bitir, "sıfırla" = turu baştan başlat
+  // Yönetim butonları: "turu bitir" = bu turu hemen bitir, "sıfırla" = turu baştan başlat
   finishRound() { this.endPeriod(); }
   resetRound() { this.startPeriod(); }
 

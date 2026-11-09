@@ -4,7 +4,9 @@ export const LIG_ID = globalThis.LIG?.id || new URLSearchParams(location.search)
 const KEY = `${LIG_ID}.config`;
 const SAVE_KEY = `${LIG_ID}.save`;
 
+// v: ayar sürümü. 2 = maç turu 25 dk'ya çıktı (eski kayıtlar bir kez güncellenir).
 export const DEFAULT_CONFIG = {
+  v: 2,
   username: '',
   source: 'relay', // 'relay' (ücretsiz aktarıcı) | 'euler'
   relayUrl: '',
@@ -22,7 +24,7 @@ export const DEFAULT_CONFIG = {
     pointsPerShare: 50,
     pointsPerJoin: 10,
     maxUsers: 5000,
-    matchday: { periodMinutes: 10 },
+    matchday: { periodMinutes: 25 },
   },
 };
 
@@ -32,7 +34,8 @@ function safe(fn, fallback) {
 
 export function loadConfig() {
   const saved = safe(() => JSON.parse(localStorage.getItem(KEY) || '{}'), {});
-  return { ...DEFAULT_CONFIG, ...saved, rules: { ...DEFAULT_CONFIG.rules, ...(saved.rules || {}) } };
+  if ((saved.v || 1) < 2 && saved.rules?.matchday) saved.rules.matchday = { ...saved.rules.matchday, periodMinutes: 25 };
+  return { ...DEFAULT_CONFIG, ...saved, v: DEFAULT_CONFIG.v, rules: { ...DEFAULT_CONFIG.rules, ...(saved.rules || {}) } };
 }
 
 export function saveConfig(cfg) {

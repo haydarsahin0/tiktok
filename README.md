@@ -121,6 +121,12 @@ Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya v
 - Ekrandaki saat yazısı `promo/uc-boyut.html` içindeki `SAAT` satırından değişir (seslendirmede saat geçmez).
 - Yeniden üretmek: `node promo/render.cjs uc-boyut` → `promo/out/taraftar-ligi-3d.mp4` (yazılımsal WebGL ile çalışır, ~15 dk sürer).
 
+### "Dev Deviren" 3D döngülü tanıtım (4. video)
+
+- Hazır video: `docs/taraftar-ligi-dev.mp4` (dikey, ~21 sn). Gece, yağmurlu arena; dört büyükler bloklardan dev formalar, karşılarında küçük Çorum forması. Taraftar desteğiyle Çorum büyür, son saniyede zaman donar (yağmur havada asılı kalır), Fenerbahçe devi blok blok yıkılır, ×1,5 Anadolu bonusu sahneye çakılır. Sonda dev geri sarılır gibi yeniden kurulur ve video başa bağlanır ("…çünkü hâlâ / dört büyükler kendini güçlü sanıyor").
+- Kaynak: `promo/dev.html` (three.js + parlama ve alan derinliği efektleri, `promo/vendor/jsm`), seslendirme `promo/dev-ses.mp3`, kelime zamanları `promo/dev-cues.json`. Müzik: davul-zurna motifli karanlık trap.
+- Yeniden üretmek: `node promo/render.cjs dev` (yazılımsal WebGL ile ~35 dk).
+
 ## Diğer yollar
 
 Yol 1: Android telefonda Termux (ücretsiz, telefon hem oyunu hem bağlantıyı çalıştırır). Yol 2: kiralık sunucu, TikTok'a doğrudan yayın gönderir (cihaz gerekmez, yayın anahtarı ister).

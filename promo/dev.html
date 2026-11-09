@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<title>Taraftar Ligi: Dev Deviren</title>
+<style>
+  @font-face { font-family: 'Baloo 2'; font-weight: 600; src: url(fonts/baloo-2-latin-600-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Baloo 2'; font-weight: 600; src: url(fonts/baloo-2-latin-ext-600-normal.woff2) format('woff2'); unicode-range: U+0100-024F, U+0130-0131, U+015E-015F, U+011E-011F; }
+  @font-face { font-family: 'Baloo 2'; font-weight: 800; src: url(fonts/baloo-2-latin-800-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Baloo 2'; font-weight: 800; src: url(fonts/baloo-2-latin-ext-800-normal.woff2) format('woff2'); unicode-range: U+0100-024F, U+0130-0131, U+015E-015F, U+011E-011F; }
+  html, body { margin: 0; background: #000; }
+  canvas#c { display: block; width: 540px; height: 960px; }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script type="module">
+/* Taraftar Ligi — "Dev Deviren" 3D döngülü tanıtım (1080x1920, 30 fps, ~21 sn).
+ * Gece, yağmurlu arena: dört büyükler bloklardan dev formalar, karşılarında küçük Çorum forması.
+ * Taraftar desteğiyle Çorum büyür, son saniyede zaman donar, Fenerbahçe devi blok blok yıkılır.
+ * Döngü: sonda dev geri sarılır gibi yeniden kurulur ve ilk kareye kavuşur. */
+import * as THREE from 'three';
+import { EffectComposer } from './vendor/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from './vendor/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from './vendor/jsm/postprocessing/UnrealBloomPass.js';
+import { BokehPass } from './vendor/jsm/postprocessing/BokehPass.js';
+import { OutputPass } from './vendor/jsm/postprocessing/OutputPass.js';
+import { RoomEnvironment } from './vendor/jsm/environments/RoomEnvironment.js';
+import { TEAMS } from '../public/core/teams.js';
+
+const W = 1080, H = 1920, FPS = 30;
+const FONT = '"Baloo 2", "Segoe UI", Arial, sans-serif';
+const EMO = '"Noto Color Emoji", "Apple Color Emoji", sans-serif';
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const main = document.getElementById('c');
+const M = main.getContext('2d');
+const mk = (w = W, h = H) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+let ctx = M;
+
+// ---------- seslendirme ----------
+const getJSON = (u) => { const x = new XMLHttpRequest(); x.open('GET', u, false); x.send(); return JSON.parse(x.responseText); };
+const VO = getJSON('dev-cues.json');
+const SAAT = '22:00';
+const PROMO = { vo: 'dev-ses.mp3', voOffset: 0, voTrim: VO.trim, voGain: 2.4, out: 'taraftar-ligi-dev.mp4' };
+const norm = (w) => w.toLocaleLowerCase('tr-TR').replace(/[^a-zçğıöşü0-9]/g, '');
+function cue(word, nth = 1) { let k = 0; for (const w of VO.words) if (norm(w.w) === norm(word) && ++k === nth) return w.s; throw new Error('kelime yok: ' + word); }
+const C = {
+  dort: cue('Dört'), guclu: cue('güçlü'), saniyor: cue('sanıyor'),
+  ama: cue('Ama'), sahada: cue('sahada'), kazandiran: cue('kazandıran'), taraftar: cue('taraftar'),
+  hediye: cue('hediye'), begeni: cue('beğeni'), takimini: cue('takımını'), yukari: cue('yukarı'), tasiyor: cue('taşıyor'),
+  skor: cue('Skor'), esit: cue('eşit'), son: cue('son'), saniye: cue('saniye'), ve: cue('ve'), anadolu: cue('Anadolu'), devi: cue('devi'), deviriyor: cue('deviriyor'),
+  cunku: cue('Çünkü'), buyuklere: cue('büyüklere'), karsi: cue('karşı'), anadolunun: cue('Anadolunun'), bir: cue('bir'), bucuk: cue('buçuk'), kat: cue('kat'),
+  takimini2: cue('takımını', 2), yorumlara: cue('yorumlara'), yaz: cue('yaz'),
+  aksam: cue('akşam'), canli: cue('canlıdayız'), cunku2: cue('çünkü', 2), hala: cue('hâlâ'),
+};
+const DUR = Math.round((VO.duration + 0.3) * FPS) / FPS;
+const FREEZE = [C.skor + 0.05, C.devi]; // zaman durur
+const BREAK = C.deviriyor;               // dev yıkılır
+const REBUILD = [C.cunku2 - 0.15, DUR - 0.12];
+
+// ---------- matematik ----------
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const prog = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
+const eOut = (t) => 1 - Math.pow(1 - t, 3);
+const eIn = (t) => t * t * t;
+const eInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const eBack = (t, s = 1.7) => 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2);
+const smooth = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+const bell = (t, a, b) => { const p = prog(t, a, b); return p <= 0 || p >= 1 ? 0 : Math.sin(p * Math.PI); };
+function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const fseed = (t) => Math.floor(t * FPS + 0.5);
+const freezeAmt = (t) => prog(t, FREEZE[0] - 0.1, FREEZE[0] + 0.25) * (1 - prog(t, FREEZE[1], FREEZE[1] + 0.12));
+// donmuş zaman: yağmur saati
+const rainClock = (t) => { const a = FREEZE[0], b = FREEZE[1]; if (t <= a) return t; if (t <= b) return a + (t - a) * 0.03; return a + (b - a) * 0.03 + (t - b); };
+
+// ---------- 2D yardımcılar ----------
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function txt(s, x, y, o = {}) {
+  const { size = 60, weight = 800, color = '#fff', align = 'center', stroke = 0, strokeColor = 'rgba(0,0,0,.85)', max = 0, alpha = 1, glow = 0, glowColor = '#000', grad = null, spacing = 0 } = o;
+  let sz = size; ctx.font = `${weight} ${sz}px ${FONT}`; ctx.letterSpacing = spacing ? `${spacing}px` : '0px';
+  if (max) while (sz > 10 && ctx.measureText(s).width > max) { sz -= 2; ctx.font = `${weight} ${sz}px ${FONT}`; }
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.textAlign = align; ctx.textBaseline = 'middle';
+  if (glow) { ctx.shadowColor = glowColor; ctx.shadowBlur = glow; }
+  if (stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = stroke; ctx.strokeStyle = strokeColor; ctx.strokeText(s, x, y + sz * 0.06); ctx.shadowBlur = 0; }
+  if (grad) { const g = ctx.createLinearGradient(0, y - sz * 0.45, 0, y + sz * 0.4); grad.forEach((c, i) => g.addColorStop(i / (grad.length - 1), c)); ctx.fillStyle = g; } else ctx.fillStyle = color;
+  ctx.fillText(s, x, y + sz * 0.06); ctx.restore(); ctx.letterSpacing = '0px';
+}
+const tw = (s, size) => { ctx.font = `800 ${size}px ${FONT}`; return ctx.measureText(s).width; };
+function emoji(e, x, y, size, rot = 0, alpha = 1) { if (size < 2 || alpha <= 0) return; ctx.save(); ctx.globalAlpha *= alpha; ctx.translate(x, y); ctx.rotate(rot); ctx.font = `${size}px ${EMO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(e, 0, size * 0.04); ctx.restore(); }
+function badge2d(tm, x, y, r) {
+  ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip(); ctx.fillStyle = tm.colors[0]; ctx.fillRect(x - r, y - r, r * 2, r * 2); ctx.fillStyle = tm.colors[1]; ctx.fillRect(x - r * 0.22, y - r, r * 0.44, r * 2); ctx.restore();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.lineWidth = Math.max(3, r * 0.12); ctx.strokeStyle = '#fff'; ctx.stroke(); txt(tm.code, x, y, { size: r * 0.7, stroke: Math.max(4, r * 0.22), max: r * 1.7 });
+}
+const GOLD = ['#fff7c2', '#ffd400', '#e09a00'];
+function canvasTex(w, h, draw) { const c = mk(w, h); const prev = ctx; ctx = c.getContext('2d'); draw(ctx, w, h); ctx = prev; const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
+const TM = Object.fromEntries(TEAMS.map((t) => [t.id, t]));
+const GIANTS = ['gs', 'fb', 'bjk', 'ts'];
+const HERO = 'corum', VILLAIN = 'fb';
+
+// ================== 3D ==================
+const glc = mk();
+const renderer = new THREE.WebGLRenderer({ canvas: glc, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.92;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x070a14, 0.0105);
+const camera = new THREE.PerspectiveCamera(56, W / H, 0.3, 900);
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(1); composer.setSize(W, H);
+composer.addPass(new RenderPass(scene, camera));
+const bokeh = new BokehPass(scene, camera, { focus: 30, aperture: 0.0001, maxblur: 0.0035 });
+composer.addPass(bokeh);
+const bloom = new UnrealBloomPass(new THREE.Vector2(W / 2, H / 2), 0.5, 0.4, 0.9);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+const OBJ = {};
+const LIGHT = {};
+
+// bloklardan forma: tasarımı küçük bir tuvale çizip her pikseli bir küp yapar
+const JPTS = [[-0.16, 0], [0, 0.11], [0.16, 0], [0.33, 0.05], [0.52, 0.24], [0.41, 0.37], [0.3, 0.29], [0.3, 0.98], [-0.3, 0.98], [-0.3, 0.29], [-0.41, 0.37], [-0.52, 0.24], [-0.33, 0.05]];
+const BOX = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+function voxelJersey(tm, N = 38) {
+  const c = mk(N, N), g = c.getContext('2d'), S = N / 1.1, ox = N / 2, oy = (N - 0.98 * S) / 2;
+  g.beginPath(); JPTS.forEach(([x, y], i) => (i ? g.lineTo : g.moveTo).call(g, ox + x * S, oy + y * S)); g.closePath();
+  g.fillStyle = tm.colors[0]; g.fill(); g.save(); g.clip(); g.fillStyle = tm.colors[1];
+  for (const k of [1, 3]) g.fillRect(ox - 0.3 * S + (k * 0.6 * S) / 5, 0, (0.6 * S) / 5, N); g.restore();
+  const shape = g.getImageData(0, 0, N, N).data;
+  const m = mk(N, N), mg = m.getContext('2d'); mg.fillStyle = '#fff'; mg.font = `800 ${Math.round(N * 0.3)}px ${FONT}`; mg.textAlign = 'center'; mg.textBaseline = 'middle';
+  mg.fillText(tm.code, ox, oy + 0.56 * S, N * 0.5); const mask = mg.getImageData(0, 0, N, N).data;
+  const cells = [];
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const k = (j * N + i) * 4; if (shape[k + 3] < 128) continue;
+    const col = new THREE.Color(`rgb(${shape[k]},${shape[k + 1]},${shape[k + 2]})`);
+    const x = i - N / 2 + 0.5, y = N - j - 0.5;
+    for (const z of [-0.5, 0.5]) cells.push({ x, y, z, col });
+    if (mask[k + 3] > 110) cells.push({ x, y, z: 1.35, col: new THREE.Color('#cfd3dc'), letter: true });
+  }
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.15, envMapIntensity: 0.9 });
+  const mesh = new THREE.InstancedMesh(BOX, mat, cells.length);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  cells.forEach((cl, i) => { mesh.setColorAt(i, cl.letter ? cl.col : cl.col.clone().multiplyScalar(1.0)); });
+  mesh.instanceColor.needsUpdate = true;
+  const dummy = new THREE.Object3D();
+  const place = () => { cells.forEach((cl, i) => { dummy.position.set(cl.x, cl.y, cl.z); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix); }); mesh.instanceMatrix.needsUpdate = true; };
+  place();
+  return { mesh, cells, N, dummy, place };
+}
+
+function text3D(str, size, grad, side = '#5a2a00', layers = 16, opts = {}) {
+  const cw = 2048, chh = 420;
+  const draw = (fill) => canvasTex(cw, chh, (c, w, h) => txt(str, w / 2, h / 2, { size: 300, grad: fill ? grad : null, color: '#fff', stroke: fill ? 20 : 0, strokeColor: opts.strokeColor || '#1a0a00', max: w - 60 }));
+  const front = draw(true), mask = draw(false);
+  const g = new THREE.Group(), geo = new THREE.PlaneGeometry(size * (cw / chh), size);
+  for (let k = layers; k >= 0; k--) {
+    const col = new THREE.Color(side).lerp(new THREE.Color('#000'), (k / layers) * 0.65);
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: k ? mask : front, color: k ? col : new THREE.Color(1.6, 1.6, 1.6), transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, fog: false, toneMapped: !!k }));
+    m.position.z = -k * size * 0.02; g.add(m);
+  }
+  scene.add(g); return g;
+}
+function glowTex(col = '255,255,255') { return canvasTex(256, 256, (c) => { const g = c.createRadialGradient(128, 128, 0, 128, 128, 128); g.addColorStop(0, `rgba(${col},1)`); g.addColorStop(0.3, `rgba(${col},.45)`); g.addColorStop(1, `rgba(${col},0)`); c.fillStyle = g; c.fillRect(0, 0, 256, 256); }); }
+const sprite = (tex, s, o = {}) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, ...o })); sp.scale.set(s[0], s[1], 1); return sp; };
+
+// yerleşim
+const HERO_POS = V3(0, 0, 9);
+const GIANT_H = 34, HERO_H = 6;
+const GPOS = GIANTS.map((id, i) => { const a = [-52, -17, 17, 52][i] * (Math.PI / 180); return V3(Math.sin(a) * 36, 0, -Math.cos(a) * 36 + 2); });
+
+async function build() {
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.28;
+  // gökyüzü, ay, bulut ışıltısı
+  OBJ.skyMat = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, map: canvasTex(16, 512, (c) => { const g = c.createLinearGradient(0, 0, 0, 512); g.addColorStop(0, '#020309'); g.addColorStop(0.42, '#0b1430'); g.addColorStop(0.5, '#1a1530'); g.addColorStop(1, '#030308'); c.fillStyle = g; c.fillRect(0, 0, 16, 512); }) });
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(700, 32, 16), OBJ.skyMat));
+  const moon = sprite(glowTex('255,90,70'), [260, 260], { fog: false, blending: THREE.AdditiveBlending, opacity: 0.55 }); moon.position.set(-60, 170, -420); scene.add(moon);
+  const moonCore = new THREE.Mesh(new THREE.CircleGeometry(34, 48), new THREE.MeshBasicMaterial({ color: 0xff6a4a, fog: false, toneMapped: false })); moonCore.position.set(-60, 170, -430); moonCore.lookAt(0, 20, 0); scene.add(moonCore);
+  // ıslak zemin
+  const floorTex = canvasTex(1024, 1024, (c, w, h) => { c.fillStyle = '#0d1018'; c.fillRect(0, 0, w, h); const r = rng(3); for (let i = 0; i < 2600; i++) { c.fillStyle = `rgba(${r() < 0.5 ? '255,255,255' : '0,0,0'},${0.02 + r() * 0.04})`; c.fillRect(r() * w, r() * h, 2 + r() * 10, 2 + r() * 10); } c.strokeStyle = 'rgba(255,255,255,.05)'; c.lineWidth = 2; for (let x = 0; x < w; x += 64) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, h); c.stroke(); c.beginPath(); c.moveTo(0, x); c.lineTo(w, x); c.stroke(); } });
+  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(10, 10);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.14, metalness: 0.55, envMapIntensity: 1.2 }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  // arena halkası (parlayan çizgiler)
+  const ringTex = canvasTex(1024, 1024, (c, w, h) => { c.translate(w / 2, h / 2); c.strokeStyle = 'rgba(255,40,60,.9)'; c.lineWidth = 10; c.beginPath(); c.arc(0, 0, 470, 0, Math.PI * 2); c.stroke(); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 4; c.beginPath(); c.arc(0, 0, 430, 0, Math.PI * 2); c.stroke(); c.beginPath(); c.arc(0, 0, 120, 0, Math.PI * 2); c.stroke(); for (let i = 0; i < 48; i++) { c.rotate(Math.PI / 24); c.fillStyle = i % 2 ? 'rgba(255,40,60,.7)' : 'rgba(255,255,255,.4)'; c.fillRect(440, -6, 26, 12); } });
+  const ring = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), new THREE.MeshBasicMaterial({ map: ringTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(0, 0.03, 4); scene.add(ring); OBJ.ring = ring;
+
+  // ışıklar
+  scene.add(new THREE.HemisphereLight(0x6070a0, 0x101018, 0.35));
+  LIGHT.moon = new THREE.DirectionalLight(0xa8b8ff, 1.3); LIGHT.moon.position.set(30, 70, 60); LIGHT.moon.castShadow = true;
+  LIGHT.moon.shadow.mapSize.set(2048, 2048); Object.assign(LIGHT.moon.shadow.camera, { left: -60, right: 60, top: 60, bottom: -40, near: 10, far: 220 }); LIGHT.moon.shadow.bias = -0.0008;
+  scene.add(LIGHT.moon);
+  LIGHT.hero = new THREE.SpotLight(0xff5060, 320, 90, 0.5, 0.6, 1.4); LIGHT.hero.position.set(0, 30, 34); LIGHT.hero.target.position.copy(HERO_POS); scene.add(LIGHT.hero, LIGHT.hero.target);
+  LIGHT.up = GIANTS.map((id, i) => { const s = new THREE.SpotLight(new THREE.Color(TM[id].colors[0]).lerp(new THREE.Color('#ffffff'), 0.35), 650, 80, 0.55, 0.7, 1.4); const p = GPOS[i]; s.position.set(p.x * 0.55, 1, p.z * 0.55 + 6); s.target.position.set(p.x, 22, p.z); scene.add(s, s.target); return s; });
+
+  // devler
+  OBJ.giants = GIANTS.map((id, i) => {
+    const v = voxelJersey(TM[id]); const g = new THREE.Group(); g.add(v.mesh);
+    const s = GIANT_H / (v.N * 0.9); v.mesh.scale.setScalar(s);
+    g.position.copy(GPOS[i]); g.lookAt(HERO_POS.x, 0, HERO_POS.z); scene.add(g);
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(14, 15.5, 1.6, 48), new THREE.MeshStandardMaterial({ color: 0x15171f, roughness: 0.35, metalness: 0.6 })); ped.position.copy(GPOS[i]).setY(0.8); ped.receiveShadow = true; scene.add(ped);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(14.6, 0.18, 8, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(TM[id].colors[0]).multiplyScalar(2.2), toneMapped: false })); rim.rotation.x = Math.PI / 2; rim.position.copy(GPOS[i]).setY(1.62); scene.add(rim);
+    return { id, v, g, s, base: GPOS[i].clone() };
+  });
+  // kahraman: Çorum
+  { const v = voxelJersey(TM[HERO], 30); const g = new THREE.Group(); g.add(v.mesh); g.position.copy(HERO_POS); scene.add(g); OBJ.hero = { v, g, unit: 1 / (v.N * 0.9) }; }
+  OBJ.heroPillar = new THREE.Mesh(new THREE.CylinderGeometry(4, 6, 80, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xff2a3a, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+  OBJ.heroPillar.position.set(HERO_POS.x, 40, HERO_POS.z); scene.add(OBJ.heroPillar);
+  OBJ.heroGlow = sprite(glowTex('255,50,70'), [30, 30], { blending: THREE.AdditiveBlending, opacity: 0.6 }); scene.add(OBJ.heroGlow);
+
+  // fiziksel yıkım için başlangıç/son durumları hesapla
+  { const gi = OBJ.giants[GIANTS.indexOf(VILLAIN)]; const r = rng(77), cl = gi.v.cells; const s = gi.s;
+    gi.phys = cl.map((c) => { const lx = c.x * s, ly = c.y * s, lz = c.z * s; const vx = lx * (0.4 + r() * 0.9) + (r() - 0.5) * 6, vz = 6 + r() * 14 + (ly / GIANT_H) * 10, vy = 2 + r() * 8; return { lx, ly, lz, vx, vy, vz, rx: (r() - 0.5) * 12, rz: (r() - 0.5) * 12, delay: (1 - ly / GIANT_H) * 0.18 + r() * 0.05, rb: r() }; });
+  }
+
+  // yağmur
+  { const n = 3200, pos = new Float32Array(n * 6), r = rng(5); const data = []; for (let i = 0; i < n; i++) data.push([(r() - 0.5) * 120, (r() - 0.5) * 120 + 5, r(), 26 + r() * 14]);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    OBJ.rain = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xbfd6ff, transparent: true, opacity: 0.32, toneMapped: false })); OBJ.rain.userData = data; OBJ.rain.frustumCulled = false; scene.add(OBJ.rain); }
+  // taraftar telefon ışıkları (arkada tribün)
+  { const n = 2600, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), r = rng(8); const data = [];
+    for (let i = 0; i < n; i++) { const x = (r() - 0.5) * 110, row = r(), z = 40 + row * 40, y = 1 + row * 30; data.push([x, y, z, r() * 6]); const red = r() < 0.25; col.set(red ? [1, 0.2, 0.25] : [1, 0.95, 0.8], i * 3); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    OBJ.fans = new THREE.Points(g, new THREE.PointsMaterial({ size: 1.0, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })); OBJ.fans.userData = data; scene.add(OBJ.fans);
+    // tribün basamakları
+  }
+
+  // 3D ikonlar (hediye, kalp)
+  const gold = new THREE.MeshStandardMaterial({ color: 0xffd400, metalness: 0.7, roughness: 0.25, emissive: 0x332200 });
+  const makeGift = () => { const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.2, 2.4), new THREE.MeshStandardMaterial({ color: 0xe8102e, roughness: 0.4, emissive: 0x300008 }))); g.add(new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.3, 0.5), gold), new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.3, 2.5), gold)); for (const s of [-1, 1]) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.18, 8, 20), gold); t.position.set(s * 0.5, 1.4, 0); t.rotation.set(0, Math.PI / 2, s * 0.5); g.add(t); } g.traverse((o) => { o.castShadow = true; }); return g; };
+  const hs = new THREE.Shape(); hs.moveTo(0, -1.1); hs.bezierCurveTo(-1.5, -0.2, -1.4, 1.05, -0.62, 1.05); hs.bezierCurveTo(-0.2, 1.05, 0, 0.7, 0, 0.5); hs.bezierCurveTo(0, 0.7, 0.2, 1.05, 0.62, 1.05); hs.bezierCurveTo(1.4, 1.05, 1.5, -0.2, 0, -1.1);
+  const heartGeo = new THREE.ExtrudeGeometry(hs, { depth: 0.6, bevelEnabled: true, bevelThickness: 0.2, bevelSize: 0.15, bevelSegments: 3 }); heartGeo.center();
+  const heartMat = new THREE.MeshStandardMaterial({ color: 0xff2d6f, roughness: 0.3, emissive: 0x660022 });
+  const r = rng(21);
+  OBJ.drops = [];
+  const add = (kind, t0, k) => { const o = kind === 'gift' ? makeGift() : new THREE.Mesh(heartGeo, heartMat); scene.add(o); OBJ.drops.push({ o, t0, x: (r() - 0.5) * 5 * k, z: (r() - 0.5) * 4 * k, s: kind === 'gift' ? 1.2 : 1.1, spin: r() * 6 }); };
+  add('gift', C.hediye - 0.35, 0.3);
+  for (let i = 0; i < 4; i++) add('heart', C.begeni - 0.35 + i * 0.07, 1);
+  for (let i = 0; i < 10; i++) add(i % 2 ? 'gift' : 'heart', C.takimini - 0.2 + i * 0.12, 1.4);
+
+  // x1,5
+  OBJ.x15 = text3D('×1,5', 9, GOLD, '#6a3a00', 22);
+  // CANLI tabelası
+  OBJ.sign = text3D(`● CANLI  ${SAAT}`, 3.2, ['#ffffff', '#ffe0e4', '#ff4060'], '#4a0010', 14);
+  // Anadolu ışık sütunları
+  OBJ.anat = ['amed', 'corum', 'kocaeli', 'goztepe', 'rize', 'samsun', 'konya', 'alanya', 'erzurum', 'gfk'].map((id, i, arr) => {
+    const a = Math.PI * 0.15 + (i / (arr.length - 1)) * Math.PI * 0.7; const x = Math.cos(a) * 22, z = 9 + Math.sin(a) * 14;
+    const col = new THREE.Color(TM[id].colors[0]);
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1, 16, 1, true), new THREE.MeshBasicMaterial({ color: col.clone().multiplyScalar(2), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+    const b = sprite(canvasTex(200, 200, () => badge2d(TM[id], 100, 100, 90)), [3.2, 3.2]);
+    scene.add(pillar, b); return { pillar, b, x, z, i };
+  });
+  // yorum balonları
+  const msgs = [['ÇORUM 💪', 'corum'], ['FENER 💛💙', 'fb'], ['AMED', 'amed'], ['61 🔵🔴', 'ts'], ['CİMBOM 🦁', 'gs'], ['GÖZ GÖZ', 'goztepe'], ['KARTAL 🦅', 'bjk'], ['19', 'corum'], ['RİZE', 'rize'], ['KOCAELİ', 'kocaeli'], ['21', 'amed'], ['SAMSUN', 'samsun']];
+  const rb = rng(31);
+  OBJ.bubbles = msgs.map(([m, id], i) => {
+    const tex = canvasTex(560, 170, (c, w, h) => { rr(8, 8, w - 16, h - 40, 44); c.fillStyle = 'rgba(255,255,255,.96)'; c.fill(); c.beginPath(); c.moveTo(80, h - 34); c.lineTo(70, h - 4); c.lineTo(120, h - 34); c.fill(); c.beginPath(); c.arc(72, 72, 44, 0, Math.PI * 2); c.fillStyle = TM[id].colors[0]; c.fill(); c.lineWidth = 6; c.strokeStyle = TM[id].colors[1]; c.stroke(); txt(TM[id].code, 72, 72, { size: 34, stroke: 7, max: 76 }); txt(m, 140, 72, { size: 62, align: 'left', color: '#111', max: 400 }); });
+    const sp = sprite(tex, [6.6, 2.0]); scene.add(sp);
+    return { sp, t0: C.takimini2 - 0.25 + i * 0.09, x: (rb() - 0.5) * 22, y: 6 + rb() * 18, z0: 44 + rb() * 6 };
+  });
+  // kıvılcım ve toz (yıkım)
+  { const n = 900, g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    OBJ.sparks = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.45, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })); OBJ.sparks.frustumCulled = false; scene.add(OBJ.sparks); }
+  OBJ.shock = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 64), new THREE.MeshBasicMaterial({ color: 0xffd400, transparent: true, side: THREE.DoubleSide, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending }));
+  OBJ.shock.rotation.x = -Math.PI / 2; scene.add(OBJ.shock);
+}
+
+// ---------- kahramanın boyu ----------
+function heroHeight(t) {
+  let h = HERO_H;
+  h *= 1 + 0.55 * eBack(prog(t, C.hediye + 0.05, C.hediye + 0.35), 2);
+  h *= 1 + 0.4 * eBack(prog(t, C.begeni + 0.05, C.begeni + 0.35), 2);
+  h *= 1 + 1.15 * eInOut(prog(t, C.takimini, C.tasiyor + 0.4));
+  h *= 1 + 0.38 * eOut(prog(t, C.anadolu - 0.1, C.devi + 0.15));
+  h = lerp(h, HERO_H * 2.2, eInOut(prog(t, C.takimini2 - 0.3, C.aksam)));
+  const back = eInOut(prog(t, REBUILD[0], REBUILD[1]));
+  return lerp(h, HERO_H, back);
+}
+
+// ---------- kamera (tek plan) ----------
+const HOOK = { p: V3(4, 1.7, 31), l: V3(-3, 17, -22), fov: 58, roll: 0.05 };
+const SEG = [
+  { a: 0, w: 0, f: (t) => { const u = eInOut(prog(t, 0, C.ama + 0.1)); return { p: HOOK.p.clone().lerp(V3(1.5, 2.6, 25), u), l: HOOK.l.clone().lerp(V3(-2, 20, -26), u), fov: 58, roll: lerp(0.05, -0.02, u) }; } },
+  { a: C.ama, w: 0.55, f: (t) => { const u = eOut(prog(t, C.ama - 0.2, C.hediye)); return { p: V3(lerp(-5, 2, u), lerp(3.8, 3.2, u), lerp(-13, -9, u)), l: V3(0, lerp(10, 8, u), 50), fov: 54, roll: 0 }; } },
+  { a: C.hediye - 0.25, w: 0.6, f: (t) => { const h = heroHeight(t); const a = lerp(0.75, -0.35, eInOut(prog(t, C.hediye - 0.5, C.skor))); const r = 14 + h * 0.75; return { p: V3(Math.sin(a) * r, 3 + h * 0.55, HERO_POS.z + Math.cos(a) * r), l: V3(0, h * 0.62, HERO_POS.z), fov: 54, roll: 0 }; } },
+  { a: C.skor, w: 0.45, f: (t) => { const u = prog(t, C.skor, C.devi); return { p: V3(lerp(9, 6, u), lerp(40, 47, u), lerp(40, 32, u)), l: V3(-10, 17, -32), fov: lerp(54, 50, u), roll: lerp(0, -0.04, u) }; } },
+  { a: C.ve - 0.1, w: 0.4, f: (t) => { const u = eOut(prog(t, C.ve - 0.2, C.devi)); return { p: V3(lerp(6, 9, u), lerp(47, 64, u), lerp(32, 54, u)), l: V3(-10, 18, lerp(-32, -28, u)), fov: 54, roll: 0 }; } },
+  { a: C.devi - 0.08, w: 0.3, f: (t) => { const u = eOut(prog(t, C.devi - 0.2, C.cunku)); return { p: V3(lerp(30, 24, u), lerp(12, 16, u), lerp(-4, 4, u)), l: V3(-11, lerp(19, 12, u), -30), fov: lerp(52, 58, u), roll: lerp(0.06, 0, u) }; } },
+  { a: C.cunku - 0.15, w: 0.8, f: (t) => { const u = eInOut(prog(t, C.cunku - 0.4, C.kat)); return { p: V3(lerp(30, -6, u), lerp(8, 8, u), lerp(46, 54, u)), l: V3(0, lerp(22, 7, u), lerp(0, 16, u)), fov: 54, roll: 0 }; } },
+  { a: C.takimini2 - 0.15, w: 0.5, f: (t) => { const u = eOut(prog(t, C.takimini2 - 0.3, C.aksam)); return { p: V3(lerp(-2, 2, u), lerp(9, 12, u), lerp(52, 46, u)), l: V3(0, lerp(9, 14, u), 0), fov: 54, roll: 0 }; } },
+  { a: C.aksam - 0.25, w: 0.6, f: (t) => { const u = eOut(prog(t, C.aksam - 0.4, C.cunku2)); return { p: V3(0, lerp(13, 15, u), lerp(46, 42, u)), l: V3(0, 22, 0), fov: 54, roll: 0 }; } },
+];
+function camPose(t) {
+  if (t >= C.cunku2 - 0.35) { const a = SEG[SEG.length - 1].f(C.cunku2 - 0.35), u = eInOut(prog(t, C.cunku2 - 0.35, DUR)); return { p: a.p.clone().lerp(HOOK.p, u), l: a.l.clone().lerp(HOOK.l, u), fov: lerp(a.fov, HOOK.fov, u), roll: lerp(a.roll, HOOK.roll, u) }; }
+  let i = 0; for (let k = 0; k < SEG.length; k++) if (t >= SEG[k].a - SEG[k].w / 2) i = k;
+  const cur = SEG[i].f(t);
+  if (i > 0 && t < SEG[i].a + SEG[i].w / 2) { const prev = SEG[i - 1].f(t), s = smooth(prog(t, SEG[i].a - SEG[i].w / 2, SEG[i].a + SEG[i].w / 2)); return { p: prev.p.lerp(cur.p, s), l: prev.l.lerp(cur.l, s), fov: lerp(prev.fov, cur.fov, s), roll: lerp(prev.roll, cur.roll, s) }; }
+  return cur;
+}
+const SHAKES = [[C.guclu, 0.25], [BREAK, 1.6], [C.devi, 0.5], [C.kat, 0.7], [C.taraftar, 0.15]];
+function shake(t) { let a = 0; for (const [ti, amp] of SHAKES) { const d = t - ti; if (d >= 0 && d < 1.2) a += amp * Math.exp(-d * 4.5); } const r = rng(fseed(t) * 7 + 3); return V3((r() - 0.5) * a, (r() - 0.5) * a, (r() - 0.5) * a * 0.5); }
+const LIGHTNING = [C.guclu, BREAK, C.kat];
+const lightning = (t) => { let a = 0; for (const ti of LIGHTNING) { const d = t - ti; if (d >= 0 && d < 0.5) a = Math.max(a, (d < 0.06 ? 1 : d < 0.12 ? 0.3 : d < 0.18 ? 0.8 : 0) * (1 - d * 1.5)); } return Math.max(0, a); };
+
+// ---------- sahne kurulumu ----------
+const dummy = new THREE.Object3D();
+function setScene(t) {
+  const cp = camPose(t);
+  camera.position.copy(cp.p).add(shake(t)); camera.fov = cp.fov; camera.up.set(Math.sin(cp.roll), Math.cos(cp.roll), 0); camera.lookAt(cp.l); camera.updateProjectionMatrix();
+  bokeh.uniforms.focus.value = camera.position.distanceTo(cp.l) * 0.85;
+  bokeh.uniforms.aperture.value = 0.00008 + 0.00008 * freezeAmt(t);
+  const fz = freezeAmt(t), lt = lightning(t);
+  LIGHT.moon.intensity = 1.3 + lt * 6; OBJ.skyMat.color.setScalar(1 + lt * 3);
+  bloom.strength = 0.5 + 0.4 * bell(t, BREAK, BREAK + 1) + 0.3 * lt;
+  // devler: kibirli nefes, yıkımda titreme
+  OBJ.giants.forEach((gi, i) => {
+    const puff = 1 + 0.035 * eBack(prog(t, C.saniyor, C.saniyor + 0.35), 2) * (1 - prog(t, C.ama, C.ama + 0.5)) + 0.008 * Math.sin(t * 1.6 + i);
+    const tremble = bell(t, BREAK, BREAK + 1.0) * 0.25; const r = rng(fseed(t) * 13 + i);
+    gi.g.position.set(gi.base.x + (r() - 0.5) * tremble, 1.6, gi.base.z + (r() - 0.5) * tremble);
+    gi.g.scale.setScalar(puff);
+  });
+  // kötü dev: yıkım ve geri kurulum
+  { const gi = OBJ.giants[GIANTS.indexOf(VILLAIN)], v = gi.v, mesh = v.mesh;
+    mesh.scale.setScalar(1); // fizik yerel koordinatta yapılır
+    const s = gi.s; const d0 = t - BREAK; const rebuild = prog(t, REBUILD[0], REBUILD[1]);
+    const broken = t >= BREAK;
+    v.cells.forEach((c, i) => {
+      const ph = gi.phys[i];
+      if (!broken) { dummy.position.set(c.x * s, c.y * s, c.z * s); dummy.rotation.set(0, 0, 0); }
+      else {
+        const state = (dt) => { const d = Math.max(0, dt - ph.delay); const k = 1 - Math.exp(-1.2 * d); const x = ph.lx + ph.vx * k * 0.9, z = ph.lz + ph.vz * k * 0.9; let y = ph.ly + ph.vy * d - 0.5 * 30 * d * d; const fl = s * 0.45; if (y < fl) y = fl + Math.abs(Math.sin(d * 6 + ph.rb * 6)) * Math.exp(-d * 4) * 0.6; return [x, y, z, ph.rx * Math.min(d, 1.4), ph.rz * Math.min(d, 1.4)]; };
+        const [x, y, z, rx, rz] = state(Math.min(d0, 3.2));
+        if (rebuild > 0) { const pr = smooth(clamp(rebuild * 1.35 - (ph.ly / GIANT_H) * 0.35, 0, 1)); dummy.position.set(lerp(x, c.x * s, pr), lerp(y, c.y * s, pr) + Math.sin(pr * Math.PI) * 3, lerp(z, c.z * s, pr)); dummy.rotation.set(rx * (1 - pr), 0, rz * (1 - pr)); }
+        else { dummy.position.set(x, y, z); dummy.rotation.set(rx, 0, rz); }
+      }
+      dummy.scale.setScalar(s); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+  // kahraman
+  { const h = heroHeight(t), hero = OBJ.hero, s = h * hero.unit; hero.v.mesh.scale.setScalar(s);
+    const pulse = bell(t, C.hediye + 0.05, C.hediye + 0.4) + bell(t, C.begeni + 0.05, C.begeni + 0.4) + bell(t, C.devi - 0.05, C.devi + 0.4);
+    hero.g.rotation.y = Math.sin(t * 0.7) * 0.08; hero.g.position.set(HERO_POS.x, 0.02 + pulse * 0.3, HERO_POS.z);
+    OBJ.heroGlow.position.set(HERO_POS.x, h * 0.5, HERO_POS.z - 1); OBJ.heroGlow.scale.setScalar(h * 2.4 * (1 + 0.3 * pulse)); OBJ.heroGlow.material.opacity = 0.18 + 0.25 * pulse;
+    LIGHT.hero.intensity = 320 + 500 * pulse; LIGHT.hero.position.set(0, 12 + h, 34);
+    OBJ.heroPillar.material.opacity = 0.22 * (bell(t, C.takimini, C.tasiyor + 0.6) + 1.4 * bell(t, C.anadolu - 0.1, C.deviriyor + 0.5));
+  }
+  // yağmur (donunca havada asılı)
+  { const rc = rainClock(t), P = OBJ.rain.geometry.attributes.position, data = OBJ.rain.userData, len = lerp(1.3, 0.12, fz);
+    data.forEach(([x, z, ph, sp], i) => { const y = 46 - ((rc * sp + ph * 46) % 46); P.setXYZ(i * 2, x, y, z); P.setXYZ(i * 2 + 1, x + 0.05, y - len, z); });
+    P.needsUpdate = true; OBJ.rain.material.opacity = 0.32 + 0.25 * fz + 0.3 * lt; }
+  // taraftar ışıkları
+  { const P = OBJ.fans.geometry.attributes.position, data = OBJ.fans.userData, flare = bell(t, C.taraftar - 0.1, C.taraftar + 0.9);
+    data.forEach(([x, y, z, ph], i) => P.setXYZ(i, x + Math.sin(t * 2.2 + ph) * 0.5 * (1 + flare * 2), y + Math.abs(Math.sin(t * 4 + ph)) * flare * 0.8, z)); P.needsUpdate = true;
+    OBJ.fans.material.size = 1.0 + flare * 0.8; OBJ.fans.material.opacity = 0.75 + 0.25 * flare; }
+  // düşen hediyeler / kalpler (kahramanın içine)
+  OBJ.drops.forEach((d) => { const f = prog(t, d.t0, d.t0 + 0.42); const h = heroHeight(t); d.o.visible = f > 0 && f < 1; if (!d.o.visible) return; const e = eIn(f); d.o.position.set(HERO_POS.x + d.x * (1 - e), lerp(h + 24, h * 0.6, e), HERO_POS.z + d.z * (1 - e) + 1); d.o.rotation.set(t * 2 + d.spin, t * 3 + d.spin, 0); d.o.scale.setScalar(d.s * (1 - e * 0.5)); });
+  // ×1,5 düşer ve çakılır
+  { const x = OBJ.x15, f = prog(t, C.bir - 0.35, C.kat), land = t >= C.kat; const out = prog(t, C.takimini2 - 0.1, C.takimini2 + 0.3);
+    x.visible = f > 0 && out < 1; if (x.visible) { const y = land ? 5.2 + Math.exp(-(t - C.kat) * 6) * Math.sin((t - C.kat) * 25) * 0.6 : lerp(60, 5.2, eIn(f)); x.position.set(0, y, 19); x.lookAt(camera.position.x, y, camera.position.z); x.scale.setScalar(Math.max(0.01, (1 - eIn(out)) * (land ? 1 + 0.03 * Math.sin(t * 6) : 1))); }
+    const sp = prog(t, C.kat, C.kat + 0.8); OBJ.shock.visible = sp > 0 && sp < 1; OBJ.shock.position.set(0, 0.06, 19); OBJ.shock.scale.setScalar(1 + sp * 40); OBJ.shock.material.opacity = 1 - sp; }
+  // Anadolu sütunları
+  OBJ.anat.forEach((a) => { const p = eBack(prog(t, C.anadolunun - 0.1 + a.i * 0.05, C.anadolunun + 0.3 + a.i * 0.05), 1.6) * (1 - prog(t, C.takimini2, C.takimini2 + 0.3)); const vis = p > 0.01; a.pillar.visible = a.b.visible = vis; if (!vis) return; const h = 9 * p; a.pillar.scale.set(1, h, 1); a.pillar.position.set(a.x, h / 2, a.z); a.b.position.set(a.x, h + 2, a.z); a.b.scale.set(3.2 * Math.min(1, p), 3.2 * Math.min(1, p), 1); });
+  // yorum balonları kameraya doğru akar
+  OBJ.bubbles.forEach((b) => { const f = prog(t, b.t0, b.t0 + 1.4); b.sp.visible = f > 0 && f < 1 && t < C.aksam + 0.3; if (!b.sp.visible) return; b.sp.position.set(b.x * lerp(1, 0.75, f), b.y, lerp(-14, b.z0 - 20, eIn(f) * 0.6 + f * 0.4)); const k = eBack(Math.min(1, f * 4), 1.8); b.sp.scale.set(6.6 * k, 2 * k, 1); });
+  // CANLI tabelası
+  { const s = OBJ.sign, p = eBack(prog(t, C.aksam - 0.1, C.canli + 0.2), 1.6) * (1 - eIn(prog(t, C.cunku2 - 0.2, C.hala + 0.15))); s.visible = p > 0.01; if (s.visible) { s.position.set(0, 21 + Math.sin(t * 2) * 0.3, 6); s.lookAt(camera.position); s.scale.setScalar(p * (1 + 0.02 * Math.sin(t * 12))); } }
+  // kıvılcımlar
+  { const P = OBJ.sparks.geometry.attributes.position, Cc = OBJ.sparks.geometry.attributes.color, n = P.count, d = t - BREAK, gp = GPOS[GIANTS.indexOf(VILLAIN)]; const vis = d > 0 && d < 2.5; OBJ.sparks.visible = vis;
+    if (vis) { for (let i = 0; i < n; i++) { const r = rng(i * 17 + 3); const a = r() * Math.PI * 2, sp = 8 + r() * 26, up = 6 + r() * 20; const k = 1 - Math.exp(-2.4 * d); P.setXYZ(i, gp.x + Math.cos(a) * sp * k, Math.max(0.1, 8 + r() * 24 + up * k - 9 * d * d), gp.z + 8 + Math.sin(a) * sp * k * 0.7); const f = clamp(1.3 - d / 1.8, 0, 1); const hot = r() < 0.7; Cc.setXYZ(i, f, (hot ? 0.6 : 0.95) * f, (hot ? 0.15 : 0.8) * f); } P.needsUpdate = true; Cc.needsUpdate = true; } }
+  OBJ.ring.material.opacity = 0.7 + 0.3 * Math.sin(t * 3);
+}
+
+// ================== 2D ÜST KATMAN ==================
+function chip(s, x, y, p, bg, fg = '#fff', size = 46) {
+  if (p <= 0) return; const sc = eBack(clamp(p, 0, 1), 1.8);
+  ctx.save(); ctx.globalAlpha *= clamp(p * 3, 0, 1); ctx.translate(x, y); ctx.scale(sc, sc); const w = tw(s, size) + 80;
+  rr(-w / 2, -size * 0.95, w, size * 1.9, size * 0.95); ctx.fillStyle = bg; ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 30; ctx.fill(); ctx.shadowBlur = 0; ctx.lineWidth = 5; ctx.strokeStyle = '#fff'; ctx.stroke();
+  txt(s, 0, 0, { size, color: fg, stroke: fg === '#fff' ? 7 : 0 }); ctx.restore();
+}
+function title(t) {
+  // başta ve sonda aynı: "DÖRT BÜYÜKLER KENDİNİ GÜÇLÜ SANIYOR"
+  const outA = 1 - prog(t, C.saniyor + 0.55, C.ama - 0.05);
+  const inA = t > 10 ? eOut(prog(t, C.cunku2 - 0.05, C.cunku2 + 0.3)) : 1, inB = t > 10 ? eBack(prog(t, C.hala - 0.05, C.hala + 0.25), 1.6) : 1;
+  const a = t > 10 ? inA : outA, b = t > 10 ? inB : outA;
+  if (a <= 0.01 && b <= 0.01) return;
+  ctx.save(); ctx.globalAlpha = clamp(a * 2, 0, 1);
+  ctx.translate(540, 300); ctx.scale(lerp(1.4, 1, a), lerp(1.4, 1, a));
+  txt('DÖRT BÜYÜKLER', 0, 0, { size: 128, stroke: 18, grad: GOLD, strokeColor: '#1a0a00', glow: 30, glowColor: 'rgba(0,0,0,.8)' });
+  ctx.restore();
+  if (b > 0.01) {
+    ctx.save(); ctx.globalAlpha = clamp(b * 2, 0, 1); ctx.translate(540, 430); ctx.rotate(-0.03); ctx.scale(b, b);
+    rr(-430, -62, 860, 124, 26); ctx.fillStyle = '#e0001b'; ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 30; ctx.fill(); ctx.shadowBlur = 0;
+    txt('KENDİNİ GÜÇLÜ SANIYOR', -40, 2, { size: 70, max: 700 }); emoji('😏', 360, 0, 80);
+    ctx.restore();
+  }
+}
+function scoreboard(t) {
+  const p = eOut(prog(t, C.skor - 0.1, C.skor + 0.25)) * (1 - prog(t, C.cunku - 0.1, C.cunku + 0.2));
+  if (p <= 0.01) return;
+  const goal = t >= BREAK, fl = bell(t, BREAK, BREAK + 0.6);
+  ctx.save(); ctx.globalAlpha = p; ctx.translate(0, (1 - p) * -120);
+  rr(80, 210, 920, 120, 24); ctx.fillStyle = 'rgba(8,10,20,.92)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.stroke();
+  badge2d(TM[HERO], 150, 270, 40); txt(TM[HERO].short, 205, 270, { size: 46, align: 'left' });
+  badge2d(TM[VILLAIN], 930, 270, 40); txt(TM[VILLAIN].short, 875, 270, { size: 46, align: 'right' });
+  rr(450, 228, 180, 84, 16); ctx.fillStyle = fl > 0 ? `rgba(255,212,0,${0.4 + 0.6 * fl})` : '#1b2238'; ctx.fill();
+  txt(goal ? '2 - 1' : '1 - 1', 540, 270, { size: 64, color: fl > 0.3 ? '#111' : '#fff' });
+  const secs = Math.floor(clamp((t - C.skor) * 12, 0, 59));
+  rr(470, 322, 140, 46, 23); ctx.fillStyle = '#e0001b'; ctx.fill(); txt(`90+4'`, 540, 345, { size: 32 });
+  if (!goal && t > C.son) { const bl = Math.floor(t * 4) % 2; chip('⏱ SON SANİYE', 540, 425, 1, bl ? '#e0001b' : '#7a0010', '#fff', 44); }
+  ctx.restore();
+  const sp = prog(t, BREAK + 0.05, BREAK + 0.3) * (1 - prog(t, C.cunku - 0.1, C.cunku + 0.1));
+  if (sp > 0) { ctx.save(); ctx.translate(540, 450); ctx.rotate(-0.08); const sc = lerp(2.6, 1, eBack(sp, 1.3)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(sp * 4, 0, 1);
+    rr(-380, -78, 760, 156, 20); ctx.fillStyle = '#ffd400'; ctx.fill(); ctx.lineWidth = 10; ctx.strokeStyle = '#111'; ctx.stroke(); txt('DEV DEVRİLDİ!', 0, 2, { size: 100, color: '#111' }); ctx.restore(); }
+}
+function overlay(t) {
+  title(t);
+  chip('🎁 HEDİYE  •  ❤️ BEĞENİ  =  BÜYÜME', 540, 270, prog(t, C.hediye - 0.05, C.hediye + 0.25) - prog(t, C.skor - 0.3, C.skor - 0.1), 'rgba(10,12,24,.85)', '#fff', 44);
+  chip('4 BÜYÜĞE KARŞI ANADOLU PUANI ×1,5', 540, 280, prog(t, C.kat + 0.05, C.kat + 0.3) - prog(t, C.takimini2 - 0.1, C.takimini2 + 0.1), '#1fbf5b', '#fff', 42);
+  // yorum oku: sağdaki yorum düğmesine
+  const cp = prog(t, C.takimini2, C.takimini2 + 0.3) - prog(t, C.aksam - 0.1, C.aksam + 0.1);
+  if (cp > 0) { chip('TAKIMINI YORUMA YAZ', 470, 1180, cp, '#fe2c55', '#fff', 50); const bx = 870 + Math.sin(t * 10) * 14; emoji('👉', bx, 1180, 110, 0, Math.min(1, cp * 2)); }
+}
+const SUB_Y = 1478;
+function subtitles(t) {
+  const chunks = VO.chunks; let idx = -1;
+  for (let i = 0; i < chunks.length; i++) { const st = Math.max(0, chunks[i][0].s - 0.06), next = i + 1 < chunks.length ? chunks[i + 1][0].s - 0.06 : Infinity, end = Math.min(next, chunks[i][chunks[i].length - 1].e + 0.45); if (t >= st && t < end) { idx = i; break; } }
+  if (idx < 0) return;
+  const ch = chunks[idx], words = ch.map((w) => w.w.toLocaleUpperCase('tr-TR'));
+  let size = 80, gap = 26; ctx.font = `800 ${size}px ${FONT}`; let widths = words.map((w) => ctx.measureText(w).width); let total = widths.reduce((a, b) => a + b, 0) + gap * (words.length - 1);
+  if (total > 880) { size = Math.floor((size * 880) / total); ctx.font = `800 ${size}px ${FONT}`; widths = words.map((w) => ctx.measureText(w).width); total = widths.reduce((a, b) => a + b, 0) + gap * (words.length - 1); }
+  // bu videoya özel altyazı stili: söylenen kelime sarı kutuya girer
+  let x = 540 - total / 2;
+  ch.forEach((w, i) => {
+    const active = t >= w.s - 0.03 && t < (i + 1 < ch.length ? ch[i + 1].s - 0.03 : w.e + 0.45);
+    const age = t - w.s, said = t >= w.s - 0.03;
+    const cx = x + widths[i] / 2;
+    ctx.save(); ctx.translate(cx, SUB_Y);
+    const k = active ? lerp(1.18, 1, eOut(clamp(age / 0.15, 0, 1))) : 1; ctx.scale(k, k); ctx.rotate(active ? -0.03 : 0);
+    if (active) { rr(-widths[i] / 2 - 16, -size * 0.62, widths[i] + 32, size * 1.2, 14); ctx.fillStyle = '#ffd400'; ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 20; ctx.fill(); ctx.shadowBlur = 0; }
+    txt(words[i], 0, 0, { size, color: active ? '#111' : '#fff', stroke: active ? 0 : Math.round(size * 0.22), alpha: said || active ? 1 : 0.6 });
+    ctx.restore(); x += widths[i] + gap;
+  });
+}
+const GRAIN = Array.from({ length: 4 }, (_, k) => { const c = mk(360, 640), x = c.getContext('2d'), d = x.createImageData(360, 640), r = rng(500 + k); for (let i = 0; i < d.data.length; i += 4) { const v = (r() * 255) | 0; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; } x.putImageData(d, 0, 0); return c; });
+function bolt(t) {
+  for (const [ti, x0] of [[C.guclu, 300], [BREAK, 760], [C.kat, 420]]) {
+    const d = t - ti; if (d < 0 || d > 0.22 || (d > 0.07 && d < 0.13)) continue;
+    const r = rng(Math.floor(ti * 100)); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = '#dfe8ff'; ctx.shadowColor = '#9fb8ff'; ctx.shadowBlur = 30;
+    let x = x0, y = -20; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(x, y); while (y < 620) { x += (r() - 0.5) * 90; y += 40 + r() * 50; ctx.lineTo(x, y); } ctx.stroke(); ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+  }
+}
+
+// ---------- kare ----------
+const ACC = mk();
+function renderFrame(t) {
+  setScene(t); composer.render();
+  const fz = freezeAmt(t), lt = lightning(t);
+  M.setTransform(1, 0, 0, 1, 0, 0); M.globalAlpha = 1; M.globalCompositeOperation = 'source-over';
+  M.filter = fz > 0.01 ? `grayscale(${0.8 * fz}) contrast(${1 + 0.15 * fz}) brightness(${1 - 0.08 * fz})` : 'none';
+  M.drawImage(glc, 0, 0); M.filter = 'none';
+  if (fz > 0.01) { M.fillStyle = `rgba(40,80,160,${0.12 * fz})`; M.fillRect(0, 0, W, H); }
+  // RGB kayması: yıkım anı
+  const rgb = 22 * Math.max(0, 1 - (t - BREAK) / 0.5) * (t >= BREAK ? 1 : 0) + 10 * Math.max(0, 1 - (t - C.kat) / 0.35) * (t >= C.kat ? 1 : 0);
+  if (rgb > 1) { const A = ACC.getContext('2d'); A.globalCompositeOperation = 'source-over'; A.drawImage(main, 0, 0); M.fillStyle = '#000'; M.fillRect(0, 0, W, H); M.globalCompositeOperation = 'lighter';
+    for (const [col, dx] of [['#ff0000', rgb], ['#00ff00', 0], ['#0000ff', -rgb]]) { const tmp = LR, tc = tmp.getContext('2d'); tc.globalCompositeOperation = 'source-over'; tc.drawImage(ACC, 0, 0); tc.globalCompositeOperation = 'multiply'; tc.fillStyle = col; tc.fillRect(0, 0, W, H); M.drawImage(tmp, dx, 0); }
+    M.globalCompositeOperation = 'source-over'; }
+  ctx = M; bolt(t);
+  if (lt > 0) { M.globalAlpha = lt * 0.35; M.fillStyle = '#dfe8ff'; M.fillRect(0, 0, W, H); M.globalAlpha = 1; }
+  const wf = bell(t, BREAK - 0.02, BREAK + 0.3); if (wf > 0) { M.globalAlpha = wf * 0.75; M.fillStyle = '#fff'; M.fillRect(0, 0, W, H); M.globalAlpha = 1; }
+  scoreboard(t); overlay(t); subtitles(t);
+  M.globalCompositeOperation = 'overlay'; M.globalAlpha = 0.1; M.drawImage(GRAIN[fseed(t) % 4], 0, 0, W, H); M.globalCompositeOperation = 'source-over'; M.globalAlpha = 1;
+  const v = M.createRadialGradient(540, 960, 600, 540, 960, 1300); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${0.5 + 0.2 * fz})`); M.fillStyle = v; M.fillRect(0, 0, W, H);
+  return true;
+}
+const LR = mk();
+
+// ================== SES: karanlık trap + davul-zurna ==================
+async function renderAudio() {
+  const SR = 44100, ac = new OfflineAudioContext(2, Math.ceil(SR * DUR), SR);
+  const comp = ac.createDynamicsCompressor(); comp.threshold.value = -15; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.18;
+  const master = ac.createGain(); master.gain.value = 0.9; master.connect(comp).connect(ac.destination);
+  const music = ac.createGain(); music.connect(master); const sfx = ac.createGain(); sfx.gain.value = 0.85; sfx.connect(master);
+  const rev = ac.createConvolver(); const ir = ac.createBuffer(2, SR * 2.5, SR); { const R = rng(1); for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (R() * 2 - 1) * Math.pow(1 - i / d.length, 2.5); } }
+  rev.buffer = ir; const revG = ac.createGain(); revG.gain.value = 0.3; rev.connect(revG).connect(master); sfx.connect(rev);
+  const musRev = ac.createGain(); musRev.gain.value = 0.35; music.connect(musRev).connect(rev);
+  const nb = ac.createBuffer(1, SR * 3, SR); { const d = nb.getChannelData(0); const R = rng(2); for (let i = 0; i < d.length; i++) d[i] = R() * 2 - 1; }
+  const pink = ac.createBuffer(1, SR * 3, SR); { const d = pink.getChannelData(0); const R = rng(4); let l = 0; for (let i = 0; i < d.length; i++) { l = 0.97 * l + 0.03 * (R() * 2 - 1); d[i] = l * 6; } }
+  const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  const env = (g, t, pk, a, d) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(pk, 0.0002), t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); };
+  const osc = (type, f, t, stop, dest) => { const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t); o.connect(dest); o.start(t); o.stop(Math.min(stop, DUR)); return o; };
+  const R0 = rng(3); const noise = (t, dur, dest, buf = nb) => { const s = ac.createBufferSource(); s.buffer = buf; s.connect(dest); s.start(t, R0() * 1.5, dur); };
+  const filt = (type, f, q = 0.7) => { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+  const dist = (amt = 6) => { const w = ac.createWaveShaper(); const c = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; c[i] = Math.tanh(x * amt); } w.curve = c; return w; };
+
+  // ızgara: 48 vuruş = döngü (yaklaşık 137 BPM, yarım-tempo trap hissi)
+  const NB = 48, B = DUR / NB;
+  // Hicaz (A): A Bb C# D E F G
+  const HZ = [57, 58, 61, 62, 64, 65, 67, 69];
+  const kick808 = (t, m, len, v = 1) => { const g = ac.createGain(); const d = dist(2.5); d.connect(g).connect(music); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7 * v, t + 0.005); g.gain.exponentialRampToValueAtTime(0.25 * v, t + len * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + len); const o = osc('sine', mtof(m + 12) * 2.2, t, t + len, d); o.frequency.exponentialRampToValueAtTime(mtof(m - 12), t + 0.07); };
+  const snare = (t, v = 1) => { const g = ac.createGain(); const f = filt('bandpass', 1900, 0.8); f.connect(g).connect(music); env(g, t, 0.42 * v, 0.002, 0.18); noise(t, 0.22, f); const g2 = ac.createGain(); g2.connect(music); env(g2, t, 0.25 * v, 0.002, 0.08); const o = osc('triangle', 220, t, t + 0.1, g2); o.frequency.exponentialRampToValueAtTime(140, t + 0.08); };
+  const hat = (t, v = 1) => { const g = ac.createGain(); const f = filt('highpass', 8500); f.connect(g).connect(music); env(g, t, 0.08 * v, 0.001, 0.035); noise(t, 0.05, f); };
+  const davul = (t, v = 1) => { const g = ac.createGain(); g.connect(music); env(g, t, 0.75 * v, 0.003, 0.35); const o = osc('sine', 95, t, t + 0.4, g); o.frequency.exponentialRampToValueAtTime(48, t + 0.25); const g2 = ac.createGain(); const f = filt('lowpass', 900); f.connect(g2).connect(music); env(g2, t, 0.35 * v, 0.002, 0.08); noise(t, 0.1, f, pink); };
+  const tek = (t, v = 1) => { const g = ac.createGain(); const f = filt('bandpass', 3200, 2); f.connect(g).connect(music); env(g, t, 0.22 * v, 0.001, 0.04); noise(t, 0.05, f); };
+  const zurna = (m, t, len, v = 1) => { const g = ac.createGain(); const f = filt('bandpass', 1500, 1.4); const d = dist(3); d.connect(f).connect(g).connect(music); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.11 * v, t + 0.03); g.gain.setValueAtTime(0.11 * v, t + len - 0.04); g.gain.linearRampToValueAtTime(0.0001, t + len); const o1 = osc('sawtooth', mtof(m + 12), t, t + len, d), o2 = osc('square', mtof(m + 12) * 1.003, t, t + len, d); const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = 6.2; lg.gain.value = mtof(m + 12) * 0.008; l.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency); l.start(t); l.stop(Math.min(t + len, DUR)); };
+  const pad = (m, t, len, v = 0.04) => [0, 7, 12].forEach((iv) => { const g = ac.createGain(); const f = filt('lowpass', 900); f.connect(g).connect(music); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.2); g.gain.linearRampToValueAtTime(0.0001, t + len); osc('sawtooth', mtof(m + iv - 12), t, t + len, f); osc('sawtooth', mtof(m + iv - 12) * 1.005, t, t + len, f); });
+  const ROOTS = [57, 57, 58, 61]; // bar kökleri
+  const RIFF = [[0, 4, 1], [1, 5, 0.5], [1.5, 4, 0.5], [2, 3, 1], [3, 2, 0.5], [3.5, 1, 0.5]]; // [vuruş, HZ indeksi, uzunluk]
+  const freeze = (t) => t >= FREEZE[0] - 0.05 && t < BREAK - 0.03;
+  const outro = (t) => t >= C.cunku2 - 0.1;
+  for (let k = 0; k < NB; k++) {
+    const t = k * B, bar = Math.floor(k / 4), bb = k % 4, root = ROOTS[bar % 4];
+    if (freeze(t)) continue;
+    if (bb === 0) pad(root, t, B * 4, outro(t) ? 0.05 : 0.035);
+    if (outro(t)) { if (bb === 0) davul(t, 0.6); tek(t + B / 2, 0.6); continue; }
+    // davul-zurna ritmi: DÜM . tek tek DÜM tek
+    if (bb === 0) { kick808(t, root, B * 1.6); davul(t, 0.5); }
+    if (bb === 1) { tek(t, 0.8); tek(t + B / 2, 0.6); }
+    if (bb === 2) { snare(t); davul(t + B * 0.5, 0.45); }
+    if (bb === 3) { kick808(t + B * 0.5, root, B * 0.9, 0.8); tek(t, 0.7); }
+    for (let h = 0; h < 2; h++) hat(t + (h * B) / 2, h ? 0.55 : 0.8);
+    if (bar % 2 === 1 && bb === 3) for (let h = 0; h < 6; h++) hat(t + (h * B) / 6, 0.5);
+    if (bar % 2 === 0 && bb === 0 && t > 0.01) RIFF.forEach(([bt, hi, ln]) => zurna(HZ[hi], t + bt * B, ln * B * 0.95, t < C.ama ? 1 : 0.8));
+  }
+  // döngü başı: zurna giriş vuruşu t=0'da (son riser buraya bağlanır)
+  RIFF.forEach(([bt, hi, ln]) => zurna(HZ[hi], bt * B, ln * B * 0.95, 1.1));
+  const FULL = 0.85, DUCK = 0.4, spans = [];
+  for (const w of VO.words) { const a = w.s - 0.08, b = w.e + 0.12; if (spans.length && a - spans[spans.length - 1][1] < 0.4) spans[spans.length - 1][1] = b; else spans.push([a, b]); }
+  music.gain.setValueAtTime(DUCK, 0);
+  for (const [a, b] of spans) { music.gain.setValueAtTime(FULL, Math.max(0.001, a - 0.06)); music.gain.linearRampToValueAtTime(DUCK, Math.max(0.002, a + 0.04)); music.gain.setValueAtTime(DUCK, b); music.gain.linearRampToValueAtTime(FULL, b + 0.18); }
+
+  // efektler
+  const boom = (t, v = 1) => { const g = ac.createGain(); g.connect(sfx); env(g, t, 0.95 * v, 0.004, 1.0); const o = osc('sine', 100, t, t + 1.1, g); o.frequency.exponentialRampToValueAtTime(30, t + 0.8); const g2 = ac.createGain(); const f = filt('lowpass', 2200); f.connect(g2).connect(sfx); env(g2, t, 0.4 * v, 0.002, 0.3); noise(t, 0.35, f); };
+  const thunder = (t, v = 1) => { const g = ac.createGain(); const f = filt('lowpass', 500); f.connect(g).connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.5 * v, t + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4); noise(t, 2.5, f, pink); const g2 = ac.createGain(); const f2 = filt('highpass', 2500); f2.connect(g2).connect(sfx); env(g2, t, 0.25 * v, 0.001, 0.12); noise(t, 0.15, f2); };
+  const whoosh = (t, v = 1, dur = 0.5) => { const g = ac.createGain(); const f = filt('bandpass', 400, 1.2); f.frequency.setValueAtTime(250, t); f.frequency.exponentialRampToValueAtTime(3500, t + dur * 0.8); f.connect(g).connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.45 * v, t + dur * 0.4); g.gain.linearRampToValueAtTime(0.0001, t + dur); noise(t, dur + 0.05, f, pink); };
+  const chime = (t, notes, gp = 0.06, v = 1) => notes.forEach((m, i) => { const tt = t + i * gp; const g = ac.createGain(); g.connect(sfx); env(g, tt, 0.14 * v, 0.004, 0.6); osc('sine', mtof(m), tt, tt + 0.7, g); osc('sine', mtof(m) * 2.01, tt, tt + 0.35, g); });
+  const swell = (t, dur, v = 1) => { const g = ac.createGain(); const f = filt('bandpass', 300, 1.5); f.frequency.setValueAtTime(200, t); f.frequency.exponentialRampToValueAtTime(2500, t + dur); f.connect(g).connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.3 * v, t + dur); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.05); noise(t, dur + 0.05, f); const g2 = ac.createGain(); g2.connect(sfx); g2.gain.setValueAtTime(0.0001, t); g2.gain.linearRampToValueAtTime(0.06 * v, t + dur); g2.gain.linearRampToValueAtTime(0.0001, t + dur + 0.05); const o = osc('sawtooth', 110, t, t + dur + 0.05, filt('lowpass', 1500)); o.disconnect(); const lp = filt('lowpass', 1500); o.connect(lp).connect(g2); o.frequency.exponentialRampToValueAtTime(440, t + dur); };
+  const cheer = (t, dur, v = 1) => { const g = ac.createGain(); const f = filt('bandpass', 900, 0.6); f.frequency.setValueAtTime(650, t); f.frequency.linearRampToValueAtTime(1200, t + dur * 0.4); f.connect(g).connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.3 * v, t + dur * 0.25); g.gain.linearRampToValueAtTime(0.2 * v, t + dur * 0.6); g.gain.linearRampToValueAtTime(0.0001, t + dur); noise(t, Math.min(dur, 2.9), f, pink); noise(t + 0.04, Math.min(dur, 2.9), f, pink); };
+  const thud = (t, v = 1) => { const g = ac.createGain(); g.connect(sfx); env(g, t, 0.55 * v, 0.003, 0.2); const o = osc('sine', 85, t, t + 0.25, g); o.frequency.exponentialRampToValueAtTime(40, t + 0.18); };
+  const clang = (t, v = 1) => [1, 2.76, 5.4, 8.93].forEach((h, i) => { const g = ac.createGain(); g.connect(sfx); env(g, t, (0.12 * v) / (i + 1), 0.002, 1.6 - i * 0.25); osc('sine', 330 * h, t, t + 1.7, g); });
+  const tick = (t, v = 1) => { const g = ac.createGain(); const f = filt('bandpass', 2400, 4); f.connect(g).connect(sfx); env(g, t, 0.3 * v, 0.001, 0.03); noise(t, 0.04, f); };
+  const heart = (t, v = 1) => { thud(t, 0.8 * v); thud(t + 0.17, 0.5 * v); };
+
+  // yağmur ambiyansı (donunca kesilir, döngü sınırında aynı seviyede)
+  { const g = ac.createGain(); const f = filt('highpass', 1800); const f2 = filt('lowpass', 9000); f.connect(f2).connect(g).connect(sfx); const lv = 0.07;
+    g.gain.setValueAtTime(lv, 0); g.gain.setValueAtTime(lv, FREEZE[0] - 0.05); g.gain.linearRampToValueAtTime(0.0001, FREEZE[0] + 0.2); g.gain.setValueAtTime(0.0001, BREAK - 0.02); g.gain.linearRampToValueAtTime(lv, BREAK + 0.4); g.gain.setValueAtTime(lv, DUR);
+    for (let x = 0; x < DUR; x += 2.9) noise(x, Math.min(3, DUR - x), f); }
+  thunder(C.guclu, 0.9); whoosh(C.saniyor, 0.3, 0.6);
+  whoosh(C.ama - 0.3, 0.9, 0.6); cheer(C.taraftar - 0.1, 1.8, 0.9);
+  OBJ.drops.forEach((d, i) => { if (i % 2 === 0 || i < 5) thud(d.t0 + 0.42, i < 1 ? 1 : 0.5); });
+  chime(C.hediye + 0.35, [69, 73, 76], 0.05, 0.8); chime(C.begeni + 0.35, [73, 76, 81], 0.05, 0.7);
+  swell(C.takimini, C.tasiyor + 0.4 - C.takimini, 0.8);
+  // zaman donar
+  { const t = FREEZE[0]; const g = ac.createGain(); g.connect(sfx); g.gain.setValueAtTime(0.3, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8); const o = osc('sine', 1800, t, t + 0.8, g); o.frequency.exponentialRampToValueAtTime(120, t + 0.7); }
+  for (let x = FREEZE[0] + 0.25; x < C.devi - 0.05; x += 0.5) tick(x, 0.9);
+  for (let x = FREEZE[0] + 0.1; x < C.devi - 0.1; x += 0.62) heart(x, 0.9);
+  { const t = FREEZE[0], d = C.devi - t; const g = ac.createGain(); g.connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.06, t + 0.4); g.gain.setValueAtTime(0.06, t + d - 0.05); g.gain.linearRampToValueAtTime(0.0001, t + d); osc('sawtooth', 55, t, t + d, filt('lowpass', 200)).disconnect(); const lp = filt('lowpass', 220); const o = osc('sawtooth', 55, t, t + d, lp); lp.connect(g); }
+  swell(C.anadolu - 0.1, C.devi - C.anadolu + 0.1, 1.1);
+  boom(C.devi, 0.8); whoosh(C.devi, 0.6, 0.35);
+  // yıkım
+  boom(BREAK, 1.6); thunder(BREAK + 0.02, 1.1); cheer(BREAK + 0.05, 2.8, 1.2);
+  { const R = rng(9); for (let i = 0; i < 60; i++) { const t = BREAK + 0.1 + R() * 1.6; const g = ac.createGain(); const f = filt('bandpass', 400 + R() * 3000, 2); f.connect(g).connect(sfx); env(g, t, 0.06 + R() * 0.08, 0.001, 0.05 + R() * 0.08); noise(t, 0.15, f); } for (let i = 0; i < 8; i++) thud(BREAK + 0.3 + i * 0.18 + R() * 0.1, 0.5); }
+  // ×1,5
+  whoosh(C.bir - 0.35, 0.8, 0.4); boom(C.kat, 1.3); clang(C.kat + 0.01, 1.2); thunder(C.kat + 0.02, 0.6);
+  for (let i = 0; i < 10; i++) chime(C.anadolunun - 0.1 + i * 0.05 + 0.25, [76 + (i % 5) * 2], 0, 0.3);
+  // yorumlar
+  for (let i = 0; i < 12; i++) { const t = C.takimini2 - 0.25 + i * 0.09; const g = ac.createGain(); g.connect(sfx); env(g, t, 0.18, 0.003, 0.1); const o = osc('sine', mtof(76 + (i % 4) * 3), t, t + 0.14, g); o.frequency.exponentialRampToValueAtTime(mtof(88 + (i % 4) * 3), t + 0.07); }
+  // neon tabela
+  { const t = C.aksam - 0.05; for (let i = 0; i < 4; i++) tick(t + i * 0.05, 0.8); const g = ac.createGain(); g.connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.04, t + 0.1); g.gain.linearRampToValueAtTime(0.0001, C.cunku2); osc('sawtooth', 100, t, C.cunku2, filt('lowpass', 700)).disconnect(); const lp = filt('lowpass', 600); osc('sawtooth', 100, t, C.cunku2, lp); lp.connect(g); }
+  // geri kurulum: ters süpürme → döngü başı
+  { const t = REBUILD[0], d = DUR - t; const g = ac.createGain(); const f = filt('bandpass', 600, 1.2); f.frequency.setValueAtTime(5000, t); f.frequency.exponentialRampToValueAtTime(300, DUR); f.connect(g).connect(sfx); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.4, DUR - 0.05); g.gain.linearRampToValueAtTime(0.0001, DUR); noise(t, d, f); }
+  swell(REBUILD[0] + 0.2, DUR - REBUILD[0] - 0.22, 0.9);
+  davul(0, 1.1); boom(0.0, 0.7); thunder(0.0, 0.0);
+
+  const buf = await ac.startRendering();
+  const n = buf.length, chn = 2, out = new DataView(new ArrayBuffer(44 + n * chn * 2));
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); out.setUint32(4, 36 + n * chn * 2, true); ws(8, 'WAVE'); ws(12, 'fmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, chn, true);
+  out.setUint32(24, SR, true); out.setUint32(28, SR * chn * 2, true); out.setUint16(32, chn * 2, true); out.setUint16(34, 16, true); ws(36, 'data'); out.setUint32(40, n * chn * 2, true);
+  const L = buf.getChannelData(0), Rr = buf.getChannelData(1);
+  let o = 44; for (let i = 0; i < n; i++) { out.setInt16(o, clamp(L[i], -1, 1) * 32767, true); out.setInt16(o + 2, clamp(Rr[i], -1, 1) * 32767, true); o += 4; }
+  const bytes = new Uint8Array(out.buffer); let bin = ''; const CHK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHK) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHK));
+  return btoa(bin);
+}
+
+const PREVIEW = [0, C.guclu + 0.05, C.sahada, C.taraftar + 0.2, C.hediye + 0.3, C.begeni + 0.3, C.tasiyor, C.esit, C.saniye + 0.3, C.anadolu + 0.3, C.devi + 0.1, BREAK + 0.15, BREAK + 0.6, BREAK + 1.2,
+  C.anadolunun + 0.3, C.bucuk, C.kat + 0.2, C.yorumlara + 0.2, C.yaz + 0.3, C.canli + 0.3, C.cunku2 + 0.2, C.hala + 0.2, DUR - 0.25, DUR - 1 / FPS];
+Object.assign(window, { FPS, DUR, C, PROMO, PREVIEW, renderFrame, renderAudio });
+window.ready = (async () => { await Promise.all([document.fonts.load(`800 60px ${FONT}`), document.fonts.load(`600 60px ${FONT}`), document.fonts.load(`40px ${EMO}`).catch(() => {})]); await build(); })();
+if (!navigator.webdriver) window.ready.then(() => { const t0 = performance.now(); (function loop(now) { renderFrame(((now - t0) / 1000) % DUR); requestAnimationFrame(loop); })(t0); });
+</script>
+</body>
+</html>

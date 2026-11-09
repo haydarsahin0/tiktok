@@ -127,6 +127,12 @@ Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya v
 - Kaynak: `promo/dev.html` (three.js + parlama ve alan derinliği efektleri, `promo/vendor/jsm`), seslendirme `promo/dev-ses.mp3`, kelime zamanları `promo/dev-cues.json`. Müzik: davul-zurna motifli karanlık trap.
 - Yeniden üretmek: `node promo/render.cjs dev` (yazılımsal WebGL ile ~35 dk).
 
+### "Son On Saniye" 2D döngülü oyun-içi video (5. video)
+
+- Hazır video: `docs/taraftar-ligi-son10.mp4` (dikey, ~35,6 sn, seslendirmeli, eş zamanlı altyazılı, -14 LUFS). Tanıtım değil, izleyiciyi oyunun içine çeken tek bir "son 10 saniye" hikâyesi: geri sayım, yorum yazma, formanın sahaya düşmesi, dolan destek barı, gol, "ama sevinme" donması, aynı anda 8 maç, canlı değişen puan tablosu, kaptan olma ve isim duvarı. Sonda zaman ileri sarılıp yeniden "son on saniye"ye bağlanır; son kare ilk kareyle aynıdır.
+- Kaynak: `promo/son10.html` + `promo/son10/` (sahneler `sahne-a…d.js`, kurgu/kamera `kurgu.js`, ses `ses.js` + `ses-fx.js`), seslendirme `promo/son10-ses.mp3`, kelime zamanları `promo/son10-cues.json`. Ses dünyası: saat tiki + kalp atışı, tribün alkış ritmi, koro ve gol uğultusu (önceki videolardaki elektronik altyapıdan bilerek farklı).
+- Yeniden üretmek: `node promo/render.cjs son10` → `promo/out/taraftar-ligi-son10.mp4` (önizleme: `node promo/render.cjs son10 --preview`).
+
 ## Diğer yollar
 
 Yol 1: Android telefonda Termux (ücretsiz, telefon hem oyunu hem bağlantıyı çalıştırır). Yol 2: kiralık sunucu, TikTok'a doğrudan yayın gönderir (cihaz gerekmez, yayın anahtarı ister).

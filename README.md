@@ -114,6 +114,13 @@ Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya v
 - Kaynak: `promo/dongu.html`, seslendirme `promo/dongu-ses.mp3`, kelime zamanları `promo/dongu-cues.json`. Kapanışta "İLK MAÇ YARIN AKŞAM 22:00" yazar.
 - Yeniden üretmek: `node promo/render.cjs dongu` → `promo/out/taraftar-ligi-dongu.mp4` (önizleme: `node promo/render.cjs dongu --preview`).
 
+### 3D döngülü tanıtım
+
+- Hazır video: `docs/taraftar-ligi-3d.mp4` (dikey, ~22 sn, seslendirmeli, eş zamanlı altyazılı, -14 LUFS). Kamera 3D bir stadyumda kesintisiz uçar: 81 plaka ışığı, gerçek Süper Lig puan tablosu, haftanın 9 maçı aynı anda (3x3 ekran duvarı), yorumların formaya dönüşmesi, baskı tüpü, ağır çekim gol ve tablonun canlı değişmesi. Son kare ilk kareye bağlanır ("…çünkü bu gece / seksen bir il, tek stadyumda"), müzik de döngü başında drop yapar.
+- Kaynak: `promo/uc-boyut.html` (three.js, `promo/vendor/`), seslendirme `promo/uc-boyut-ses.mp3`, kelime zamanları `promo/uc-boyut-cues.json`. Tablo ve fikstür `public/core/superlig-data.js` dosyasından okunur; veri güncellenip video yeniden üretilirse güncel tablo görünür.
+- Ekrandaki saat yazısı `promo/uc-boyut.html` içindeki `SAAT` satırından değişir (seslendirmede saat geçmez).
+- Yeniden üretmek: `node promo/render.cjs uc-boyut` → `promo/out/taraftar-ligi-3d.mp4` (yazılımsal WebGL ile çalışır, ~15 dk sürer).
+
 ## Diğer yollar
 
 Yol 1: Android telefonda Termux (ücretsiz, telefon hem oyunu hem bağlantıyı çalıştırır). Yol 2: kiralık sunucu, TikTok'a doğrudan yayın gönderir (cihaz gerekmez, yayın anahtarı ister).

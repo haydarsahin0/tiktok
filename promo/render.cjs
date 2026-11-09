@@ -27,10 +27,12 @@ function serve(root) {
 (async () => {
   fs.mkdirSync(path.join(OUT, 'frames'), { recursive: true });
   const srv = await serve(path.dirname(DIR));
-  const b = await chromium.launch();
+  // 3D sayfa için yazılımsal WebGL (GPU olmayan makinelerde de çalışır)
+  const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const p = await b.newPage({ viewport: { width: 540, height: 960 } });
   const errs = [];
   p.on('pageerror', (e) => errs.push(e.message));
+  p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
   await p.goto(`http://127.0.0.1:${srv.address().port}/promo/${PAGE}.html`);
   await p.evaluate(() => window.ready);
   const { FPS, DUR, C, PR, PV } = await p.evaluate(() => ({ FPS, DUR, C, PR: PROMO, PV: typeof PREVIEW === 'undefined' ? null : PREVIEW }));

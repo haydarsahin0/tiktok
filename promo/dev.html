@@ -42,7 +42,7 @@ let ctx = M;
 const getJSON = (u) => { const x = new XMLHttpRequest(); x.open('GET', u, false); x.send(); return JSON.parse(x.responseText); };
 const VO = getJSON('dev-cues.json');
 const SAAT = '22:00';
-const PROMO = { vo: 'dev-ses.mp3', voOffset: 0, voTrim: VO.trim, voGain: 2.4, out: 'taraftar-ligi-dev.mp4' };
+const PROMO = { vo: 'dev-ses.mp3', voOffset: 0, voTrim: VO.trim, voGain: 3.0, out: 'taraftar-ligi-dev.mp4' };
 const norm = (w) => w.toLocaleLowerCase('tr-TR').replace(/[^a-zçğıöşü0-9]/g, '');
 function cue(word, nth = 1) { let k = 0; for (const w of VO.words) if (norm(w.w) === norm(word) && ++k === nth) return w.s; throw new Error('kelime yok: ' + word); }
 const C = {

@@ -11,7 +11,7 @@ let ctx = LA.getContext('2d');
 // ---------- seslendirme zamanları ----------
 const getJSON = (u) => { const x = new XMLHttpRequest(); x.open('GET', u, false); x.send(); return JSON.parse(x.responseText); };
 const VO = getJSON('son10-cues.json');
-const PROMO = { vo: 'son10-ses.mp3', voOffset: 0, voTrim: VO.trim, voGain: 2.3, out: 'taraftar-ligi-son10.mp4' };
+const PROMO = { vo: 'son10-ses.mp3', voOffset: 0, voTrim: VO.trim, voGain: 2.6, lufs: -12, voFx: 'acompressor=threshold=-22dB:ratio=3:attack=4:release=120:makeup=2.5,equalizer=f=3200:t=q:w=1.2:g=2.5', out: 'taraftar-ligi-son10.mp4' };
 const norm = (w) => w.toLocaleLowerCase('tr-TR').replace(/[^a-zçğıöşü0-9']/g, '');
 function cue(word, nth = 1) {
   let k = 0;

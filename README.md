@@ -129,7 +129,7 @@ Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya v
 
 ### "Son On Saniye" 2D döngülü oyun-içi video (5. video)
 
-- Hazır video: `docs/taraftar-ligi-son10.mp4` (dikey, ~35,6 sn, seslendirmeli, eş zamanlı altyazılı, -14 LUFS). Tanıtım değil, izleyiciyi oyunun içine çeken tek bir "son 10 saniye" hikâyesi: geri sayım, yorum yazma, formanın sahaya düşmesi, dolan destek barı, gol, "ama sevinme" donması, aynı anda 8 maç, canlı değişen puan tablosu, kaptan olma ve isim duvarı. Sonda zaman ileri sarılıp yeniden "son on saniye"ye bağlanır; son kare ilk kareyle aynıdır.
+- Hazır video: `docs/taraftar-ligi-son10.mp4` (dikey, ~35,6 sn, seslendirmeli, eş zamanlı altyazılı, -12 LUFS; seslendirme sıkıştırılıp öne alındı). Tanıtım değil, izleyiciyi oyunun içine çeken tek bir "son 10 saniye" hikâyesi: geri sayım, yorum yazma, formanın sahaya düşmesi, dolan destek barı, gol, "ama sevinme" donması, aynı anda 8 maç, canlı değişen puan tablosu, kaptan olma ve isim duvarı. Sonda zaman ileri sarılıp yeniden "son on saniye"ye bağlanır; son kare ilk kareyle aynıdır.
 - Kaynak: `promo/son10.html` + `promo/son10/` (sahneler `sahne-a…d.js`, kurgu/kamera `kurgu.js`, ses `ses.js` + `ses-fx.js`), seslendirme `promo/son10-ses.mp3`, kelime zamanları `promo/son10-cues.json`. Ses dünyası: saat tiki + kalp atışı, tribün alkış ritmi, koro ve gol uğultusu (önceki videolardaki elektronik altyapıdan bilerek farklı).
 - Yeniden üretmek: `node promo/render.cjs son10` → `promo/out/taraftar-ligi-son10.mp4` (önizleme: `node promo/render.cjs son10 --preview`).
 

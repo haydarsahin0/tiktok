@@ -69,8 +69,8 @@ function serve(root) {
     '-i', path.join(OUT, 'audio.wav'),
     '-i', path.join(DIR, PR.vo),
     // seslendirme: baştaki sessizlik kırpılır, gerekirse geciktirilir, müziğin üstüne biner; sonra TikTok seviyesine (-14 LUFS)
-    '-filter_complex', `[2:a]atrim=start=${TRIM},asetpts=PTS-STARTPTS,adelay=${Math.round(OFF * 1000)}|${Math.round(OFF * 1000)},aformat=channel_layouts=stereo,volume=${process.env.VO_GAIN || PR.voGain || '1.6'}[vo];` +
-      '[1:a][vo]amix=inputs=2:normalize=0:duration=first,loudnorm=I=-14:TP=-1.5:LRA=11[a]',
+    '-filter_complex', `[2:a]atrim=start=${TRIM},asetpts=PTS-STARTPTS,adelay=${Math.round(OFF * 1000)}|${Math.round(OFF * 1000)},aformat=channel_layouts=stereo,${PR.voFx ? PR.voFx + ',' : ''}volume=${process.env.VO_GAIN || PR.voGain || '1.6'}[vo];` +
+      `[1:a][vo]amix=inputs=2:normalize=0:duration=first,loudnorm=I=${PR.lufs || -14}:TP=-1.5:LRA=11[a]`,
     '-map', '0:v', '-map', '[a]',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
     '-c:a', 'aac', '-b:a', '192k', '-ar', '44100',

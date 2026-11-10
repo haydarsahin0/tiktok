@@ -139,6 +139,13 @@ Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya v
 - Kaynak: `promo/hafta12.html` + `promo/hafta12/` (zaman çizelgesi `zaman.js`, veri `veri.js`, sahneler `sahne-1…6.js`, kurgu `kurgu.js`, ses `ses-a.js` + `ses-b.js`), seslendirme `promo/hafta12-ses.mp3`, kelime zamanları `promo/hafta12-cues.json`. Kulüp logoları `promo/logos/` (kaynaklar: `promo/logos/KAYNAK.md`). Müzik: sokak davulu / batucada.
 - Yeniden üretmek: `node promo/render.cjs hafta12` → `promo/out/taraftar-ligi-hafta12.mp4` (önizleme: `node promo/render.cjs hafta12 --preview`).
 
+### "2. Tur Başladı" döngülü video (7. video)
+
+- Hazır video: `docs/taraftar-ligi-tur2.mp4` (dikey, ~59,2 sn, seslendirmeli, eş zamanlı altyazılı, -12 LUFS). 6. videonun yorumları sayıldı (`promo/sayim/`: kişi başı en fazla 2 yorum, dört büyüklere karşı Anadolu ×1,5, %65 üstü = 1 gol): 12. hafta 1. tur skorları, istatistikler (27 yorum, 16'sı sayıldı), gollerin ve golsüz maçların gösterimi, anlık puan tablosu, 2. turun kuralları ve beğeni şartı. Son kelime ("…çünkü") ilk cümleye ("Birinci tur bitti…") bağlanır.
+- Kaynak: `promo/tur2.html` + `promo/tur2/` (zaman çizelgesi ve veri `zaman.js`, sahneler `sahne-1…5.js`, kurgu `kurgu.js`, ses `ses-a.js` + `ses-b.js`), seslendirme `promo/tur2-ses.mp3`, kelime zamanları `promo/tur2-cues.json`. Müzik: bando + tribün.
+- Yorum sayımı: `python3 promo/sayim/say.py <yorumlar.json> promo/sayim/hafta12-tur1.json` ve `node promo/sayim/tablo.mjs promo/sayim/hafta12-tur1.json promo/sayim/hafta12-tur1-tablo.json`.
+- Yeniden üretmek: `node promo/render.cjs tur2` (önizleme: `--preview`).
+
 ## Diğer yollar
 
 Yol 1: Android telefonda Termux (ücretsiz, telefon hem oyunu hem bağlantıyı çalıştırır). Yol 2: kiralık sunucu, TikTok'a doğrudan yayın gönderir (cihaz gerekmez, yayın anahtarı ister).

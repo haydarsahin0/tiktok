@@ -47,7 +47,7 @@ window.SES7 = (() => {
     const dip = ac.createBiquadFilter(); dip.type = 'peaking'; dip.frequency.value = 2400; dip.Q.value = 0.8; dip.gain.value = -3.5;
     const duck = ac.createGain(), secG = ac.createGain(); duck.connect(dip).connect(secG).connect(music0);
     { // bölüm seviyesi (yalnızca müzik): sonda başa eşit değere döner → döngüde seviye sıçramaz
-      const SV = [[0, 1], [T.stats, 0.85], [T.bjk, 0.9], [T.gfkHit + 0.9, 0.72], [T.noGoal, 0.8], [T.nerede + 0.1, 0.62], [T.tablo, 0.85], [T.ikinci + 0.02, 0.95], [T.kural65, 0.95], [T.kuralSpam, 0.88], [T.begeni, 0.75], [T.cta, 1.05], [T.settle, 1]];
+      const SV = [[0, 1], [T.stats, 0.85], [T.bjk, 0.9], [T.gfkHit + 0.9, 0.72], [T.noGoal, 0.8], [T.nerede + 0.1, 0.62], [T.tablo, 0.85], [T.ikinci + 0.02, 0.95], [T.kural65, 0.95], [T.kuralSpam, 0.8], [T.begeni, 0.75], [T.cta, 1.05], [T.settle, 1]];
       const MG = 0.55; // yatağın genel seviyesi (ölçüme göre: konuşma altı yatak ≈ -28 dBFS RMS)
       secG.gain.setValueAtTime(MG * SV[0][1], 0); for (let i = 1; i < SV.length; i++) { secG.gain.setValueAtTime(MG * SV[i - 1][1], SV[i][0] - 0.04); secG.gain.linearRampToValueAtTime(MG * SV[i][1], SV[i][0] + 0.04); }
     }
@@ -192,9 +192,9 @@ window.SES7 = (() => {
     fan(6.66, [[0, 70, 0.08], [0.1, 70, 0.08], [0.2, 77, 0.12]], 0.7, -0.2); // "saydık." → Beşiktaş'a giriş
     fan(33.06, [[0, 67, 0.12], [0.16, 70, 0.12], [0.32, 75, 0.12]], 0.6);    // "böyle." → tablo
     fan(40.16, [[0, 72, 0.1], [0.12, 77, 0.16]], 0.6, -0.2);                  // "atar." → %65 kuralı kapanır
-    fan(48.36, [[0, 69, 0.1], [0.12, 72, 0.15]], 0.55);                       // "sayıldı:" → kişi başı 2
+    fan(48.36, [[0, 69, 0.1], [0.12, 72, 0.15]], 0.4);                       // "sayıldı:" → kişi başı 2
     // --- "Ama … bitti" → 2. TUR: trampet rulosu kreşendosu (nefes arasında doruk)
-    roll(T.ikinci - 1.15, 1.13, 0.1, 0.34);
+    roll(T.ikinci - 1.15, 1.13, 0.1, 0.28);
     // --- "son": T.settle'dan döngü sınırına öncü dolgu: trampet rulosu kreşendo + tuba F–G–A → t=0'daki Si♭'ye çözülür
     {
       const b0 = (BARS - 1) * BAR, st = (j) => b0 + stepT(j);

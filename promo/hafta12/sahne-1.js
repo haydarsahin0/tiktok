@@ -34,9 +34,10 @@ function sHook(t) {
   // baloncuklar kutudan fırlar
   BURST.forEach((b, k) => {
     const dt = t - b; if (dt < 0) return;
-    const r = rng(50 + k), tx = 190 + r() * 700, ty = 420 + r() * 520, f = eOut(prog(dt, 0, 0.5));
-    const blow = eIn(prog(t, C.uc - 0.1, C.uc + 0.3)), dx = (tx - 540) * blow * 1.5, dy = (ty - 800) * blow * 1.5;
-    bubble(k * 2 + 1, lerp(540 + (r() - 0.5) * 200, tx, f) + dx, lerp(ORB.pillY - 20, ty, f) - dt * 24 + dy, lerp(0.3, 0.82, eBack(prog(dt, 0, 0.4))), (1 - blow) * clamp(dt * 8, 0, 1), (r() - 0.5) * 0.2);
+    const r = rng(50 + k), side = k % 2 ? 1 : -1, tx = 540 + side * (150 + r() * 120), f = eOut(prog(dt, 0, 0.35));
+    const y = ORB.pillY - 60 - dt * 520 - 60 * f, blow = eIn(prog(t, C.uc - 0.1, C.uc + 0.3));
+    const a = clamp(dt * 8, 0, 1) * (1 - prog(y, 560, 420)) * (1 - blow);
+    bubble(k * 2 + 1, lerp(540, tx, f) + side * blow * 500, y, lerp(0.3, 0.8, eBack(prog(dt, 0, 0.3))), a, side * 0.05 * (1 - f) + (r() - 0.5) * 0.08);
   });
   ctx.restore();
 
@@ -59,7 +60,7 @@ function sHook(t) {
     const ext = Math.abs(Math.sin((Math.PI * u) / HS));
     const L = 590, px = 540, py = 230, cx = px + Math.sin(th) * L, cy = lerp(py + Math.cos(th) * L, 640, eOut(done));
     const hitR = th > 0.4 ? ext : 0, hitL = th < -0.4 ? ext : 0;
-    const sa = 1 - done;
+    const sa = 1 - prog(t, C.karar - 0.05, C.karar + 0.1);
     sticker(hm, 255, 990, 230, { alpha: sa, sx: 1 - 0.12 * hitL, sy: 1 + 0.08 * hitL, rot: -0.12 * hitL });
     sticker(aw, 825, 990, 230, { alpha: sa, sx: 1 - 0.12 * hitR, sy: 1 + 0.08 * hitR, rot: 0.12 * hitR });
     txt(TM[hm].say, 255, 1150, { size: 62, stroke: 12, max: 420, alpha: sa });

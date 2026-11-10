@@ -97,8 +97,8 @@ function sMatch(t, i) {
     const bi = (id) => NICKS.findIndex((n) => n[1] === id);
     for (let k = 0; k < 6; k++) {
       const side = k % 2, st = aL + 0.1 + k * 0.17, dt = t - st; if (dt < 0 || dt > 1.4) continue;
-      const q = dt / 1.4, x = side ? lerp(-200, 330, eOut(q)) : lerp(1280, 760, eOut(q)), y = (side ? 1262 : 448) - q * 30 + (k % 3) * 12;
-      bubble(bi(side ? m.away : m.home), x, y, 0.6, q > 0.75 ? (1 - q) / 0.25 : 1, side ? 0.06 : -0.06);
+      const q = dt / 1.4, x = side ? lerp(-200, 330, eOut(q)) : lerp(1280, 760, eOut(q)), y = side ? 1352 : 448 - q * 30 + (k % 3) * 12;
+      bubble(bi(side ? m.away : m.home), x, y, side ? 0.5 : 0.6, q > 0.75 ? (1 - q) / 0.25 : 1, side ? 0.06 : -0.06);
     }
   }
   // ev sahibi
@@ -125,9 +125,12 @@ function sMatch(t, i) {
   // düello çubuğu: sonuç açık, 0–0, "?"
   const ba = prog(t, hL + 0.1, hL + 0.3);
   if (ba > 0) {
-    duelBar(540, 1350, 680, 0.5, cl, ca, { h: 46, alpha: ba, q: 1, t });
-    const sl = big && t > aL ? scramble(t, 1) : '0', sr = big && t > aL ? scramble(t, 2) : '0';
-    txt(sl, 158, 1350, { size: 58, stroke: 10, alpha: ba }); txt(sr, 922, 1350, { size: 58, stroke: 10, alpha: ba });
+    duelBar(540, 1275, 680, 0.5, cl, ca, { h: 46, alpha: ba, q: 1, t });
+    for (const [k, x] of [[1, 158], [2, 922]]) { // gerçek maç: sayaç asla sayı göstermez, "?" titrer
+      const r = rng(frameSeed(t) * 13 + k), j = big && t > aL ? 1 : 0;
+      ctx.save(); ctx.translate(x + j * (r() - 0.5) * 8, 1275 + j * (r() - 0.5) * 8); ctx.rotate(j * (r() - 0.5) * 0.5); const sc = 1 + j * r() * 0.3; ctx.scale(sc, sc);
+      txt('?', 0, 0, { size: 62, stroke: 10, alpha: ba * (j ? 0.6 + 0.4 * r() : 1), color: j && r() < 0.3 ? GOLD : '#fff' }); ctx.restore();
+    }
   }
   ctx.restore();
   // flaşlar (büyük maçlar)

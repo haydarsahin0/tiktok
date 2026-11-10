@@ -46,7 +46,7 @@ function sLive(t) {
   ctx.save(); ctx.translate(540, lerp(0, -220, tilt)); ctx.translate(0, 900); ctx.scale(lerp(1, 0.8, tilt), lerp(1, 0.5, tilt)); ctx.translate(-540, -900);
   drawTable(t, { alpha: 1 - 0.75 * tilt }); ctx.restore();
   const flip = prog(t, C.canli - 0.12, C.canli + 0.18);
-  band(t, 540, 318, 1, flip < 0.5 ? 'sadece' : 'live', flip);
+  band(t, 540, BAND_Y, BAND_S, flip < 0.5 ? 'sadece' : 'live', flip);
   // telefon ekranı aşağıdan gelir, "gözünün önünde" ekran kadrajı doldurur
   const sl = eOut5(prog(t, T.canli + 0.1, T.canli + 0.55)), push = eInOut(prog(t, T.push - 0.05, T.push + 0.4));
   ctx.save(); ctx.translate(0, (1 - sl) * 1300); ctx.translate(540, 880); const z = lerp(1, 1.6, push); ctx.scale(z, z); ctx.translate(-540, -880);
@@ -71,7 +71,7 @@ function sCta(t) {
   const back = prog(t, C.ve2 - 0.05, C.ve2 + 1.0); // yörünge geri gelir
   const settle = prog(t, T.settle - 0.1, T.settle + 0.45);
   // 1) avatar + takip et
-  const avOut = eIn(prog(t, C.videoyu - 0.1, C.videoyu + 0.15));
+  const avOut = eIn(prog(t, C.videoyu - 0.12, C.videoyu + 0.08));
   if (avOut < 1) {
     const s = 1 - avOut;
     sticker('tl', AV.x, AV.y, AV.d * s * (1 + 0.06 * bell(t, T.tap, T.tap + 0.25)));
@@ -88,14 +88,14 @@ function sCta(t) {
     arrow(800 + 14 * Math.sin(t * 12), 1060, 0, 190, '#fff', aa);
   }
   // 2) beğen: dev kalp
-  const hIn = Math.max(prog(t, C.videoyu + 0.05, T.heart + 0.12) * 0.01, prog(t, T.heart - 0.06, T.heart + 0.12)), h0 = eBack(prog(t, C.videoyu + 0.05, C.videoyu + 0.25), 2), hOut = eIn(prog(t, C.ve2 - 0.05, C.ve2 + 0.25));
+  const hIn = Math.max(prog(t, C.videoyu + 0.05, T.heart + 0.12) * 0.01, prog(t, T.heart - 0.06, T.heart + 0.12)), h0 = eBack(prog(t, C.videoyu + 0.05, C.videoyu + 0.25), 2), hOut = eIn(prog(t, C.ve2 - 0.12, C.ve2 + 0.1));
   [C.videoyu + 0.2, C.videoyu + 0.34].forEach((tt) => ring(t, tt, 560, 760, '#fff', 160, 10, 0.3));
   if (hIn > 0 && hOut < 1) {
     const s = Math.max(0.32 * h0 * (1 + 0.08 * Math.sin(t * 20)), eBack(prog(t, T.heart - 0.06, T.heart + 0.12), 2.2)) * (1 - hOut);
     radial(540, 760, 600, hexA(RD, 0.4 * s));
     heart(540, 780, 520 * s * (1 + 0.04 * Math.sin(t * 14)), RD, 1, -0.06);
     for (let k = 0; k < 16; k++) { const r = rng(800 + k), a = r() * TAU, dt = t - T.heart, d = eOut(clamp(dt / 0.7, 0, 1)) * (260 + r() * 260); if (dt > 0 && dt < 0.9) heart(540 + Math.cos(a) * d, 760 + Math.sin(a) * d - dt * 120, 40 + r() * 40, k % 2 ? RD : '#ff8fb1', 1 - dt / 0.9, a); }
-    ctx.save(); ctx.globalAlpha = 1 - hOut; txt('❤ ' + fmtN(lerp(9800, 12418, eOut(prog(t, T.heart, T.heart + 0.6)))), 540, 1040, { size: 66, stroke: 10 }); ctx.restore();
+    ctx.save(); ctx.globalAlpha = (1 - hOut) * prog(t, T.heart, T.heart + 0.1); txt('❤ ' + fmtN(lerp(9800, 12418, eOut(prog(t, T.heart, T.heart + 0.6)))), 540, 1040, { size: 66, stroke: 10 }); ctx.restore();
     slamDuo('BEĞEN', 470, 1190, 200, prog(t, C.begen - 0.04, C.begen + 0.12), { alpha: 1 - hOut });
     arrow(720 + 14 * Math.sin(t * 12), 1190, 0, 240, '#fff', prog(t, C.begen + 0.15, C.begen + 0.3) * (1 - hOut));
   }

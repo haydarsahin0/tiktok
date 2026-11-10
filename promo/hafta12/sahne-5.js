@@ -43,7 +43,7 @@ function drawTable(t, o = {}) {
 // üst şerit: başlık → DİKKAT (sarı-siyah) → CANLI (kırmızı)
 function hazard(x, w, y, h) { ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.fillStyle = '#111'; ctx.fillRect(x, y, w, h); ctx.fillStyle = WARN; for (let k = -2; k < w / 30 + 2; k++) { ctx.beginPath(); ctx.moveTo(x + k * 30, y + h); ctx.lineTo(x + k * 30 + 15, y + h); ctx.lineTo(x + k * 30 + 15 + h, y); ctx.lineTo(x + k * 30 + h, y); ctx.fill(); } ctx.restore(); }
 function band(t, x, y, s, mode, flipQ = 0) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(-0.035); ctx.scale(s, s * Math.max(0.02, Math.abs(Math.cos(flipQ * Math.PI))));
+  ctx.save(); ctx.translate(x, y); ctx.rotate(lerp(-0.012, -0.035, clamp((s - 0.78) / 0.5, 0, 1))); ctx.scale(s, s * Math.max(0.02, Math.abs(Math.cos(flipQ * Math.PI))));
   ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 30; ctx.fillStyle = mode === 'live' ? RD : WARN; ctx.fillRect(-640, -62, 1280, 124); ctx.restore();
   if (mode !== 'live') { hazard(-640, 1280, -62, 14); hazard(-640, 1280, 48, 14); }
   if (mode === 'dikkat') txt('⚠ DİKKAT', 0, 0, { size: 104, color: '#111', spacing: 6 });
@@ -51,14 +51,15 @@ function band(t, x, y, s, mode, flipQ = 0) {
   else { const pu = 0.5 + 0.5 * Math.sin(t * 8); ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.5 + 0.5 * pu; ctx.beginPath(); ctx.arc(-300, 0, 20, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; txt('CANLI · HER HAFTA', 30, 0, { size: 80, color: '#fff', spacing: 3, max: 560 }); }
   ctx.restore();
 }
+const BAND_Y = 316, BAND_S = 0.78, COIN_P = [1000, 470, 46];
 function tableBand(t) {
-  const d = C.dikkat, inq = prog(t, d - 0.08, d + 0.08), up = eInOut(prog(t, d + 0.4, d + 0.62));
+  const d = C.dikkat, inq = prog(t, d - 0.08, d + 0.08), up = eInOut(prog(t, d + 0.28, d + 0.48));
   if (inq <= 0) {
     ctx.save(); rr(250, 278, 580, 80, 40); ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fill(); ctx.restore();
     duo('PUAN TABLOSU', 540, 318, 66, { off: 3, spacing: 3 });
     return;
   }
-  const s = lerp(lerp(2.4, 1.3, eOut5(inq)), 1, up), y = lerp(880, 318, up);
+  const s = lerp(lerp(2.4, 1.3, eOut5(inq)), BAND_S, up), y = lerp(880, BAND_Y, up);
   band(t, 540, y, s, t < C.sadece - 0.05 ? 'dikkat' : 'sadece', bell(t, C.sadece - 0.15, C.sadece + 0.05) * 0.5);
 }
 function sTable(t) {
@@ -69,12 +70,12 @@ function sTable(t) {
   const dim = bell(t, C.dikkat - 0.05, C.dikkat + 0.7) * 0.55;
   if (dim > 0) { ctx.fillStyle = `rgba(0,0,0,${dim})`; ctx.fillRect(0, 0, W, H); }
   tableBand(t);
-  if (t >= T.tablo + 0.5) coin(915, 392, 62, { glow: 0.5, rot: 0.1 });
-  ring(t, T.tablo + 0.5, 915, 392, GOLD, 500, 22, 0.5);
+  if (t >= T.tablo + 0.5) coin(COIN_P[0], COIN_P[1], COIN_P[2], { glow: 0.5, rot: 0.1 });
+  ring(t, T.tablo + 0.5, COIN_P[0], COIN_P[1], GOLD, 500, 22, 0.5);
 }
 // +3 parası: düellodan tabloya uçuş (sahneler arası, üst katmanda)
 window.coinFlight = (t) => {
   const a = T.tablo - 0.18, b = T.tablo + 0.5; if (t < a || t >= b) return;
   const q = prog(t, a, b), e = eInOut(q);
-  coin(lerp(810, 915, e), lerp(300, 392, e) - 260 * Math.sin(q * Math.PI), lerp(110, 62, e), { flip: q * TAU * 2, glow: 0.8 });
+  coin(lerp(810, COIN_P[0], e), lerp(300, COIN_P[1], e) - 260 * Math.sin(q * Math.PI), lerp(110, COIN_P[2], e), { flip: q * TAU * 2, glow: 0.8 });
 };

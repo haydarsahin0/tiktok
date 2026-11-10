@@ -25,7 +25,7 @@ function ngCard(t, j) {
   ring(t, tH, x - 82, y - 100, '#fff', 260, 10, 0.4); ring(t, tA, x + 82, y + 40, '#fff', 260, 10, 0.4);
   // "Taraftarınız neredeydi?" soru işareti zıplar
   const qa = prog(t, T.nerede + j * 0.12, T.nerede + j * 0.12 + 0.15);
-  if (qa > 0) { const b = Math.abs(Math.sin((t - T.nerede) * 7 + j)); txt('?', x + 92, y - 120 - 40 * b, { size: 150, color: '#fff', stroke: 14, alpha: qa, glow: 30, glowColor: CY }); }
+  if (qa > 0) { const b = Math.abs(Math.sin((t - T.nerede) * 7 + j)); txt('?', x + 92, y - 120 - 40 * b, { size: 150, color: '#fff', stroke: 14, alpha: qa, shadow: 1 }); }
 }
 function sNoGoal(t) {
   bgNeutral(t, 0.5);
@@ -89,7 +89,7 @@ function sIkinci(t) {
   tracker(540, TRK_Y, { done: 1, lit: eOut(hit), t, label: 'TUR 2/' + ROUNDS_TOTAL, w: 760 });
   ring(t, C.ikinci, 540 - 380 + 59 + 127, TRK_Y, CY, 700, 24, 0.6);
   slamDuo('2. TUR', 540, 470, 210, prog(t, C.ikinci + 0.02, C.ikinci + 0.18), { color: '#fff' }, -0.04);
-  slamDuo('BAŞLADI!', 540, 640, 140, prog(t, C.basladi + 0.02, C.basladi + 0.18), { color: CY }, 0.03);
+  slamDuo('BAŞLADI!', 540, 640, 140, prog(t, C.basladi + 0.02, C.basladi + 0.18), { color: GOLD }, 0.03);
   sparks(t, C.basladi + 0.05, 540, 640, [CY, RD, '#fff', GOLD], 40, 1400, 1.5, 0.8);
   const pa = prog(t, C.basladi + 0.15, C.basladi + 0.4);
   if (pa > 0) pill(540, 1250, { w: 780, h: 116, t, alpha: clamp(pa * 2, 0, 1), scale: lerp(0.5, 1, eBack(pa)) });

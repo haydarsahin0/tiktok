@@ -83,7 +83,7 @@ function sCta(t) {
         if (tapped) check(0, 0, 0.9, RD); else { ctx.fillStyle = '#fff'; ctx.fillRect(-15, -4, 30, 8); ctx.fillRect(-4, -15, 8, 30); } ctx.restore();
       } else { ctx.beginPath(); ctx.arc(0, 0, 95, 0, TAU); ctx.fillStyle = '#1e1e27'; ctx.fill(); emoji('💬', 0, 4, 110); }
       ctx.restore();
-      txt(lab[k], x, CTA_Y + 170, { size: 52, spacing: 2, stroke: 8, alpha: clamp(p * 3, 0, 1), color: k === 0 ? '#ff6b8a' : k === 2 ? CY : '#fff' });
+      txt(lab[k], x, CTA_Y + 170, { size: 52, spacing: 2, stroke: 8, alpha: clamp(p * 3, 0, 1), color: k === 2 ? GOLD : '#fff', shadow: 1 });
     }
     if (t >= T.heart) { const r = rng(2100); for (let k = 0; k < 8; k++) { const ph = ((t - T.heart) * 0.9 + r()) % 1; heart(CTA_X[0] + Math.sin(t * 3 + k) * 30, CTA_Y - 60 - ph * 260, 34 + r() * 20, k % 2 ? RD : '#ff8fb1', Math.sin(ph * Math.PI) * 0.8); } }
     const pa = eOut5(prog(t, T.pill - 0.05, T.pill + 0.3));

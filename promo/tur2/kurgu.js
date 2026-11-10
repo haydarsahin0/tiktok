@@ -134,8 +134,7 @@ function subtitles(t) {
       const active = t >= ws && t < we, said = t >= ws;
       const k = active ? 1 + 0.16 * (1 - eOut(prog(t, ws, ws + 0.14))) + 0.04 : 1;
       ctx.save(); ctx.translate(x + ww / 2, 0); ctx.scale(k, k);
-      if (active) { txt(w, 3, 3, { size, color: RD, stroke: size * 0.22, strokeColor: 'rgba(5,5,8,.95)' }); txt(w, 0, 0, { size, color: GOLD }); }
-      else txt(w, 0, 0, { size, color: '#fff', alpha: said ? 1 : 0.62, stroke: size * 0.22, strokeColor: 'rgba(5,5,8,.95)' });
+      txt(w, 0, 0, { size, color: active ? GOLD : '#fff', alpha: active || said ? 1 : 0.62, stroke: size * 0.12, strokeColor: 'rgba(5,5,8,.7)', shadow: 1 });
       ctx.restore();
       x += ww + gap();
     });

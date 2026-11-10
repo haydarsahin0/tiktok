@@ -47,7 +47,7 @@ window.SES7 = (() => {
     const dip = ac.createBiquadFilter(); dip.type = 'peaking'; dip.frequency.value = 2400; dip.Q.value = 0.8; dip.gain.value = -3.5;
     const duck = ac.createGain(), secG = ac.createGain(); duck.connect(dip).connect(secG).connect(music0);
     { // bölüm seviyesi (yalnızca müzik): sonda başa eşit değere döner → döngüde seviye sıçramaz
-      const SV = [[0, 1], [T.stats, 0.85], [T.bjk, 0.9], [T.noGoal, 0.8], [T.nerede + 0.1, 0.62], [T.tablo, 0.85], [T.ikinci + 0.02, 0.95], [T.kural65, 0.95], [T.kuralSpam, 0.88], [T.begeni, 0.75], [T.cta, 1.05], [T.settle, 1]];
+      const SV = [[0, 1], [T.stats, 0.85], [T.bjk, 0.9], [T.gfkHit + 0.9, 0.72], [T.noGoal, 0.8], [T.nerede + 0.1, 0.62], [T.tablo, 0.85], [T.ikinci + 0.02, 0.95], [T.kural65, 0.95], [T.kuralSpam, 0.88], [T.begeni, 0.75], [T.cta, 1.05], [T.settle, 1]];
       const MG = 0.55; // yatağın genel seviyesi (ölçüme göre: konuşma altı yatak ≈ -28 dBFS RMS)
       secG.gain.setValueAtTime(MG * SV[0][1], 0); for (let i = 1; i < SV.length; i++) { secG.gain.setValueAtTime(MG * SV[i - 1][1], SV[i][0] - 0.04); secG.gain.linearRampToValueAtTime(MG * SV[i][1], SV[i][0] + 0.04); }
     }
@@ -149,7 +149,7 @@ window.SES7 = (() => {
       if (L.fill) continue;
       const nh = nearHit(t, 0.32), nh2 = nearHit(t, 0.16);
       if (L.build) { // "Ama altı turun sadece biri bitti": Fsus/F gerilimi — tuba uzun, davul çeyrek nabız, trampet rulosu kreşendo → 2. TUR vuruşu
-        if (p % 4 === 0 && t < T.ikinci - 0.1) bass(t, 0.45 + 0.35 * prog(t, T.ama, T.ikinci), 0);
+        if (p % 4 === 0 && t < T.ikinci - 0.1) bass(t, 0.35 + 0.25 * prog(t, T.ama, T.ikinci), 0);
         if (p === 0) horn(t, ch.tu[0], BAR * 0.95, 0.75, 0, 'tu');
         if (p % 2 === 0 && t < T.ikinci - 1.2) snare(t + jit(), (p % 4 ? 0.22 : 0.38) * hum());
         continue;
@@ -198,9 +198,9 @@ window.SES7 = (() => {
     // --- "son": T.settle'dan döngü sınırına öncü dolgu: trampet rulosu kreşendo + tuba F–G–A → t=0'daki Si♭'ye çözülür
     {
       const b0 = (BARS - 1) * BAR, st = (j) => b0 + stepT(j);
-      roll(T.settle + 0.02, DUR - T.settle - 0.05, 0.25, 1.0);
-      [[8, 41], [12, 43], [14, 45]].forEach(([j, m]) => { if (st(j) >= T.settle - 0.03) horn(st(j), m - 12 + (m - 12 < 30 ? 12 : 0), S16 * (j === 8 ? 3.6 : 1.8), 0.85, 0, 'tu'); });
-      [[12, 0.45], [14, 0.6]].forEach(([j, v]) => bass(st(j), v));
+      roll(T.settle + 0.02, DUR - T.settle - 0.05, 0.22, 0.9);
+      [[8, 41], [12, 43], [14, 45]].forEach(([j, m]) => { if (st(j) >= T.settle - 0.03) horn(st(j), m - 12 + (m - 12 < 30 ? 12 : 0), S16 * (j === 8 ? 3.6 : 1.8), 1.0, 0, 'tu'); });
+      [[10, 0.35], [12, 0.45], [14, 0.55]].forEach(([j, v]) => bass(st(j), v));
       [10, 12, 14].forEach((j, i) => chord(st(j), [[57, 60, 65], [57, 63, 65], [58, 62, 65]][i].map((m) => m + (i === 2 ? 0 : 0)), S16 * 1.4, 0.35 + i * 0.12, 'tb', 0.1));
     }
     // --- t=0: inişin vuruşu (döngüde dolgunun çözüldüğü yer) — konuşma ("Birinci") hemen başladığı için pirinç kısa

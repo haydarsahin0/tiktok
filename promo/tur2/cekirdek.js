@@ -46,25 +46,31 @@ function setFont(size, weight = 900) { ctx.font = `${weight} ${size}px ${FONT}`;
 function tw(s, size, weight = 900, spacing = 0) { ctx.letterSpacing = `${spacing}px`; setFont(size, weight); const w = ctx.measureText(s).width; ctx.letterSpacing = '0px'; return w; }
 function fit(s, size, max, weight = 900, spacing = 0) { let sz = size; while (sz > 12 && tw(s, sz, weight, spacing) > max) sz -= 2; return sz; }
 function txt(s, x, y, o = {}) {
-  const { size = 60, weight = 900, color = '#fff', align = 'center', stroke = 0, strokeColor = 'rgba(8,8,12,.92)', max = 0, alpha = 1, glow = 0, glowColor = '#000', spacing = 0 } = o;
+  const { size = 60, weight = 900, color = '#fff', align = 'center', stroke = 0, strokeColor = 'rgba(8,8,12,.92)', max = 0, alpha = 1, glow = 0, glowColor = '#000', spacing = 0, shadow = 0 } = o;
   const sz = max ? fit(s, size, max, weight, spacing) : size;
   if (alpha <= 0) return sz;
   ctx.save(); ctx.globalAlpha *= alpha; ctx.letterSpacing = `${spacing}px`; setFont(sz, weight);
   ctx.textAlign = align; ctx.textBaseline = 'middle';
   if (glow) { ctx.shadowColor = glowColor; ctx.shadowBlur = glow; }
+  if (shadow) { ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8; }
   if (stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = stroke; ctx.strokeStyle = strokeColor; ctx.strokeText(s, x, y + sz * 0.05); ctx.shadowBlur = 0; }
   ctx.fillStyle = color; ctx.fillText(s, x, y + sz * 0.05);
   ctx.restore(); ctx.letterSpacing = '0px';
   return sz;
 }
-// "sosyal uygulama" ikili ofset yazı: camgöbeği sol-üst, kırmızı sağ-alt, beyaz üstte
+// başlık yazısı: temiz dolgu (beyaz → #e8ecf3 dikey geçiş ya da düz renk), ince koyu kontur, tek yumuşak gölge. Renk saçağı YOK.
 function duo(s, x, y, size, o = {}) {
-  const { max = 0, alpha = 1, off = size * 0.045, color = '#fff', align = 'center', spacing = 0, stroke = 0 } = o;
+  const { max = 0, alpha = 1, color = '#fff', align = 'center', spacing = 0 } = o;
   const sz = max ? fit(s, size, max, 900, spacing) : size;
-  const d = (sz / size) * off;
-  txt(s, x - d, y - d * 0.6, { size: sz, color: CY, align, alpha, spacing });
-  txt(s, x + d, y + d * 0.6, { size: sz, color: RD, align, alpha, spacing });
-  txt(s, x, y, { size: sz, color, align, alpha, spacing, stroke, strokeColor: 'rgba(8,8,12,.5)' });
+  if (alpha <= 0) return sz;
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.letterSpacing = `${spacing}px`; setFont(sz, 900); ctx.textAlign = align; ctx.textBaseline = 'middle';
+  const yy = y + sz * 0.05, k = clamp(sz / 120, 0.35, 1.6);
+  ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 24 * k; ctx.shadowOffsetY = 8 * k;
+  if (sz >= 60) { ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, sz * 0.035); ctx.strokeStyle = 'rgba(8,8,12,.6)'; ctx.strokeText(s, x, yy); ctx.shadowColor = 'rgba(0,0,0,0)'; }
+  if (color === '#fff') { const g = ctx.createLinearGradient(0, y - sz * 0.45, 0, y + sz * 0.45); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#e8ecf3'); ctx.fillStyle = g; }
+  else ctx.fillStyle = color;
+  ctx.fillText(s, x, yy);
+  ctx.restore(); ctx.letterSpacing = '0px';
   return sz;
 }
 // büyükten küçüğe çakılan yazı (p 0..1), ezilip esneme ile

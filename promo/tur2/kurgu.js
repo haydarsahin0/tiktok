@@ -7,7 +7,7 @@ const SC = [
 ];
 // her sahneye GİRİŞ geçişi: [tür, süre, ...]
 const TR = [null, ['flipV', 0.3], ['zin', 0.3, 540, 380], ['diag', 0.34], ['whipL', 0.3], ['slide', 0.3],
-  ['spin', 0.34], ['whipU', 0.28], ['flash', 0.2], ['zout', 0.42, 540, 470], ['punch', 0.3],
+  ['spin', 0.34], ['whipU', 0.28], ['flash', 0.14], ['zout', 0.42, 540, 470], ['punch', 0.3],
   ['whipD', 0.32], ['iris', 0.5, 540, 700, 60], ['zin', 0.3, 420, 1150]];
 
 function drawZoom(cv, fx, fy, s, a, blur = 0) {

@@ -98,7 +98,7 @@ function sBjk(t) {
         let got = 0;
         for (let k = 0; k < nV; k++) { const st = C.en + 0.05 + k * 0.2, dt = t - st; if (dt >= 0.8) got++; if (dt < 0 || dt >= 0.8) continue; const q = eInOut(dt / 0.8), sy = 1240 + (k % 3) * 70;
           const bx = (1 - q) * (1 - q) * -200 + 2 * (1 - q) * q * 380 + q * q * 770, by = (1 - q) * (1 - q) * sy + 2 * (1 - q) * q * (sy + 40) + q * q * 1060;
-          miniComment(bx, by, 'bjk', lerp(0.9, 0.25, q), q > 0.85 ? (1 - q) / 0.15 : 1, 0.05); }
+          miniComment(bx, by, 'bjk', lerp(1, 0.3, q * q), q > 0.85 ? (1 - q) / 0.15 : 1, 0.05); }
         for (let k = 0; k < got; k++) ring(t, C.en + 0.05 + k * 0.2 + 0.8, 770, 1060, '#fff', 260, 10, 0.35);
         if (got > 0 && gone < 1) { ctx.save(); ctx.globalAlpha = 1 - gone; duo(String(got), 420, 600, 300, { color: GOLD }); txt('YORUM', 700, 640, { size: 90, stroke: 12, spacing: 4 }); ctx.restore(); }
         return;

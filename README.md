@@ -133,6 +133,12 @@ Aynı oyun motoruyla çalışan ikinci lig: **Hilal, Zoktay, Mina, Esin, Lidya v
 - Kaynak: `promo/son10.html` + `promo/son10/` (sahneler `sahne-a…d.js`, kurgu/kamera `kurgu.js`, ses `ses.js` + `ses-fx.js`), seslendirme `promo/son10-ses.mp3`, kelime zamanları `promo/son10-cues.json`. Ses dünyası: saat tiki + kalp atışı, tribün alkış ritmi, koro ve gol uğultusu (önceki videolardaki elektronik altyapıdan bilerek farklı).
 - Yeniden üretmek: `node promo/render.cjs son10` → `promo/out/taraftar-ligi-son10.mp4` (önizleme: `node promo/render.cjs son10 --preview`).
 
+### "12. Hafta: 3 Puanı Yorumlar Veriyor" döngülü video (6. video)
+
+- Hazır video: `docs/taraftar-ligi-hafta12.mp4` (dikey, ~47,6 sn, seslendirmeli, eş zamanlı altyazılı, -12 LUFS). 12. haftanın dokuz maçı gerçek kulüp logolarıyla sırayla gelir; kural anlatılır (yorumlarda rakibinden çok adı yazılan takım 3 puanı alır), logolu puan tablosunda "+3" ihtimalleri döner, ardından canlı yayın ve takip/beğeni/yorum çağrısı gelir. Son kelime ("…çünkü") ilk cümleye ("Bu videonun yorumları…") bağlanır; son kare ilk kareyle aynıdır.
+- Kaynak: `promo/hafta12.html` + `promo/hafta12/` (zaman çizelgesi `zaman.js`, veri `veri.js`, sahneler `sahne-1…6.js`, kurgu `kurgu.js`, ses `ses-a.js` + `ses-b.js`), seslendirme `promo/hafta12-ses.mp3`, kelime zamanları `promo/hafta12-cues.json`. Kulüp logoları `promo/logos/` (kaynaklar: `promo/logos/KAYNAK.md`). Müzik: sokak davulu / batucada.
+- Yeniden üretmek: `node promo/render.cjs hafta12` → `promo/out/taraftar-ligi-hafta12.mp4` (önizleme: `node promo/render.cjs hafta12 --preview`).
+
 ## Diğer yollar
 
 Yol 1: Android telefonda Termux (ücretsiz, telefon hem oyunu hem bağlantıyı çalıştırır). Yol 2: kiralık sunucu, TikTok'a doğrudan yayın gönderir (cihaz gerekmez, yayın anahtarı ister).

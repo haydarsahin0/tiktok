@@ -175,3 +175,8 @@ function sticker(id, x, y, d, o = {}) {
   if (dim > 0) { ctx.globalAlpha *= dim; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(0, 0, 127, 0, TAU); ctx.fill(); }
   ctx.restore();
 }
+
+// maç kartı çarpma anları: ev sahibi adı ile; dört deplasman adı (Göztepe, Gaziantep, Fenerbahçe, Beşiktaş) ~60 ms erken işaretli
+const EARLY = { goztepe: 1, gfk: 1, fb: 1, bjk: 1 };
+const landH = (i) => MATCHES[i].tHome + 0.03;
+const landA = (i) => MATCHES[i].tAway + (EARLY[MATCHES[i].away] ? 0.06 : 0.03);

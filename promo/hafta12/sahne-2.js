@@ -93,10 +93,10 @@ function sRule(t) {
   if (open > 0) rain(t, T.split + 0.15, C.takim + 0.3, 22, 21, 0.55);
   // +3 parası kazanan tarafa düşer
   if (t >= drop - 0.25) {
-    const q = prog(t, drop - 0.25, land), y = q < 1 ? lerp(-250, 560, eIn(q)) : 560 - 60 * Math.abs(Math.sin(prog(t, land, land + 0.4) * Math.PI)) * (1 - prog(t, land, land + 0.4));
+    const q = prog(t, drop - 0.25, land), y = q < 1 ? lerp(-250, 600, eIn(q)) : 600 - 60 * Math.abs(Math.sin(prog(t, land, land + 0.4) * Math.PI)) * (1 - prog(t, land, land + 0.4));
     ring(t, land, 270, 640, GOLD, 650, 36, 0.55); ring(t, land + 0.08, 270, 640, '#fff', 500, 14, 0.5);
     sparks(t, land, 300, 600, [GOLD, '#fff', CY], 26, 77, 1.1, 0.6);
-    coin(380, y, 110, { flip: (1 - q) * 6, glow: 0.8, sx: 1 });
+    coin(405, y, 92, { flip: (1 - q) * 6, glow: 0.8, sx: 1 });
   }
   slamDuo('+3 PUAN', 540, 1230, 190, prog(t, C.alir - 0.08, C.alir + 0.08), { color: GOLD, off: 8 });
   if (t > land) { ctx.fillStyle = `rgba(255,255,255,${0.5 * (1 - prog(t, land, land + 0.1))})`; ctx.fillRect(0, 0, W, H); }

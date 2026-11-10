@@ -26,7 +26,7 @@ window.SES12 = (() => {
     const SR = 44100, N = Math.round(DUR * SR), TAILS = 2.6, PRE = 264; // PRE: kompresörün 6 ms ön-gecikmesi telafisi
     const ac = new OfflineAudioContext(2, N + PRE + Math.round(TAILS * SR), SR), MUTE = window.SES_MUTE || {};
     const comp = ac.createDynamicsCompressor(); comp.threshold.value = -12; comp.knee.value = 8; comp.ratio.value = 2.6; comp.attack.value = 0.003; comp.release.value = 0.16;
-    const master = ac.createGain(); master.gain.value = 0.5; master.connect(comp).connect(ac.destination);
+    const master = ac.createGain(); master.gain.value = 0.3; master.connect(comp).connect(ac.destination);
     // sokak yankısı: kısa, erken yansımalı (duvarlar arası çınlama) — 1.1 sn
     const rev = ac.createConvolver(), ir = ac.createBuffer(2, Math.floor(SR * 1.1), SR);
     { const R = rng(1201); for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) { const x = i / d.length; d[i] = (R() * 2 - 1) * Math.pow(1 - x, 3.2) * (x < 0.02 ? x / 0.02 : 1); }
@@ -35,7 +35,11 @@ window.SES12 = (() => {
     const bus = (name, send) => { const g = ac.createGain(), o = ac.createGain(); o.gain.value = MUTE[name] ? 0 : 1; g.connect(o).connect(master); const s = ac.createGain(); s.gain.value = send; o.connect(s).connect(rev); return g; };
     // ducking: konuşma varken yatak tabanda, nefes aralarında biraz açılır (son aralık açılmaz → döngü başı = sonu)
     const music0 = bus('music', 0.35), sfx = bus('sfx', 0.3), other0 = bus('other', 0.4);
-    const duck = ac.createGain(); duck.connect(music0); const duckO = ac.createGain(); duckO.connect(other0);
+    const duck = ac.createGain(), secG = ac.createGain(); duck.connect(secG).connect(music0);
+    // bölüm seviyesi (yalnızca müzik): sonda başa eşit değere döner → döngüde seviye sıçramaz
+    { const SV = [[0, 1.33], [T.kural - 0.04, 1], [T.m[0] - 0.05, 1.25], [T.m[5] - 0.03, 1], [T.sen - 0.05, 1.4], [T.canli - 0.05, 1.3], [T.cta - 0.05, 1.08]];
+      secG.gain.setValueAtTime(SV[0][1], 0); for (let i = 1; i < SV.length; i++) { secG.gain.setValueAtTime(SV[i - 1][1], SV[i][0]); secG.gain.linearRampToValueAtTime(SV[i][1], SV[i][0] + 0.05); }
+      secG.gain.setValueAtTime(1.08, T.settle); secG.gain.linearRampToValueAtTime(1.33, DUR - 0.05); } const duckO = ac.createGain(); duckO.connect(other0);
     const music = duck, other = duckO;
     {
       const spans = []; for (const w of VO.words) { const a = w.s - 0.05, b = w.e + 0.04; if (spans.length && a - spans[spans.length - 1][1] < 0.12) spans[spans.length - 1][1] = b; else spans.push([a, b]); }
@@ -58,35 +62,35 @@ window.SES12 = (() => {
     // surdo: akortlu derin tok vuruş; open=false → abafado (elle susturulmuş)
     const surdo = (t, f, v = 1, pan = 0, open = true, dest = music) => {
       const dec = open ? 0.62 : 0.14;
-      const g = out(dest, pan); perc(g, t, 0.95 * v, 0.003, dec); const o = osc('sine', f * 1.55, t, dec + 0.05, g); o.frequency.exponentialRampToValueAtTime(f, T0(t) + 0.045);
-      const g2 = out(dest, pan); perc(g2, t, 0.28 * v, 0.003, dec * 0.45); const o2 = osc('sine', f * 2.02 * 1.3, t, dec * 0.5, g2); o2.frequency.exponentialRampToValueAtTime(f * 2.02, T0(t) + 0.04);
+      const g = out(dest, pan); perc(g, t, 0.5 * v, 0.003, dec); const o = osc('sine', f * 1.55, t, dec + 0.05, g); o.frequency.exponentialRampToValueAtTime(f, T0(t) + 0.045);
+      const g2 = out(dest, pan); perc(g2, t, 0.34 * v, 0.003, dec * 0.45); const o2 = osc('sine', f * 2.02 * 1.3, t, dec * 0.5, g2); o2.frequency.exponentialRampToValueAtTime(f * 2.02, T0(t) + 0.04);
       const g3 = out(dest, pan), lp = filt('lowpass', 700, 0.9, g3); perc(g3, t, 0.55 * v, 0.002, 0.05); noise(t, 0.08, lp);
       const g4 = out(dest, pan), bp = filt('bandpass', 1900, 1.2, g4); perc(g4, t, 0.12 * v, 0.001, 0.014); noise(t, 0.03, bp);
     };
     // caixa: tel hışırtısı + gövde + çıt
-    const caixa = (t, v = 1, pan = 0, dest = music) => {
+    const caixa = (t, v = 1, pan = 0, dest = music) => { v *= 1.45;
       const g = out(dest, pan), hp = filt('highpass', 2600, 0.7, g); perc(g, t, 0.42 * v, 0.0015, 0.07 + 0.07 * v); noise(t, 0.2, hp);
       const g2 = out(dest, pan), bp = filt('bandpass', 1500, 0.9, g2); perc(g2, t, 0.32 * v, 0.001, 0.035); noise(t, 0.06, bp);
       const g3 = out(dest, pan); perc(g3, t, 0.22 * v, 0.001, 0.045); const o = osc('triangle', 330, t, 0.07, g3); o.frequency.exponentialRampToValueAtTime(205, T0(t) + 0.04);
     };
     // tamborim: sert, kuru, tiz "tak"
-    const tamborim = (t, v = 1, pan = 0, dest = music) => {
+    const tamborim = (t, v = 1, pan = 0, dest = music) => { v *= 1.4;
       const g = out(dest, pan); perc(g, t, 0.2 * v, 0.001, 0.06); const o = osc('sine', 960, t, 0.08, g); o.frequency.exponentialRampToValueAtTime(780, T0(t) + 0.03);
       const g2 = out(dest, pan), bp = filt('bandpass', 3400, 1.6, g2); perc(g2, t, 0.4 * v, 0.0008, 0.018); noise(t, 0.03, bp);
     };
     // agogô: iki ağızlı çan (inarmonik kısmi sesler)
-    const agogo = (t, hi, v = 1, pan = 0, dest = music) => {
+    const agogo = (t, hi, v = 1, pan = 0, dest = music) => { v *= 1.35;
       const f = hi ? 1046.5 : 784; // C6 / G5
       [[1, 0.16, 0.32], [2.71, 0.05, 0.12], [5.1, 0.02, 0.05]].forEach(([r, a, d]) => { const g = out(dest, pan); perc(g, t, a * v, 0.001, d); osc('sine', f * r, t, d + 0.03, g); });
       const g2 = out(dest, pan), bp = filt('bandpass', 4200, 2, g2); perc(g2, t, 0.12 * v, 0.0005, 0.008); noise(t, 0.015, bp);
     };
     // ganzá (shaker)
-    const ganza = (t, v = 1, pan = 0, dest = music) => {
+    const ganza = (t, v = 1, pan = 0, dest = music) => { v *= 1.25;
       const g = out(dest, pan), hp = filt('highpass', 6000, 0.7, g), bp = filt('peaking', 9000, 1, hp); bp.gain.value = 4;
       t = T0(t); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.16 * v, t + 0.014); g.gain.setTargetAtTime(0, t + 0.014, 0.012); noise(t, 0.09, bp);
     };
     // sub bas: surdoyu izleyen kısa nota
-    const sub = (t, f, len, v = 1, dest = music) => { const g = out(dest); perc(g, t, 0.5 * v, 0.008, len); osc('sine', f, t, len + 0.05, g); const g2 = out(dest), lp = filt('lowpass', 380, 0.7, g2); perc(g2, t, 0.1 * v, 0.008, len * 0.6); osc('triangle', f * 2, t, len, lp); };
+    const sub = (t, f, len, v = 1, dest = music) => { const g = out(dest); perc(g, t, 0.17 * v, 0.008, len); osc('sine', f, t, len + 0.05, g); const g2 = out(dest), lp = filt('lowpass', 380, 0.7, g2); perc(g2, t, 0.08 * v, 0.008, len * 0.6); osc('triangle', f * 2, t, len, lp); };
     // nefesli stab (A7): yalnızca büyük vuruşlarda
     const brass = (t, v = 1, len = 0.2, pan = 0, dest = music) => {
       t = T0(t); const g = out(dest, pan), lp = filt('lowpass', 900, 1.4, g); lp.frequency.setValueAtTime(700, t); lp.frequency.linearRampToValueAtTime(3400, t + 0.03); lp.frequency.exponentialRampToValueAtTime(1100, t + len);
@@ -161,7 +165,7 @@ window.SES12 = (() => {
       }
       const nh = nearHit(t, 0.2), nh2 = nearHit(t, 0.11);
       if ((p === 4 || p === 12) && lv.s1) { if (!nh) { surdo(t + jit(), F1, lv.s1 * hum(), -0.1, true); if (lv.sb) sub(t, F1, 0.45, lv.sb); } }
-      if ((p === 0 || p === 8) && lv.s2) { if (!nh) { surdo(t + jit(), F2, lv.s2 * hum(), 0.12, p === 8 ? true : bar % 2 === 1); if (lv.sb) sub(t, F2, 0.3, lv.sb * 0.8); } }
+      if ((p === 0 || p === 8) && lv.s2) { if (!nh) { surdo(t + jit(), F2, lv.s2 * hum(), 0.12, p === 8 || k === 0 || bar % 2 === 1); if (lv.sb) sub(t, F2, 0.3, lv.sb * 0.8); } }
       if ((p === 15) && lv.s2 && !nh) surdo(t, F2, 0.3 * lv.s2, 0.12, false); // abafado öncü
       if (lv.s3 && S3.includes(p) && !nh) surdo(t + jit(), F3, lv.s3 * (p % 4 === 2 ? 1 : 0.7) * hum(), 0.35, p !== 3 && p !== 11);
       if (lv.cx && !nh2) caixa(t + jit(), lv.cx * CXV[p % 4] * hum(), -0.18);
@@ -182,15 +186,15 @@ window.SES12 = (() => {
     {
       const b0 = (BARS - 1) * BAR, st = (j) => b0 + stepT(j);
       for (let j = 0; j < 16; j++) { const t = st(j); if (t < T.settle - 0.03) continue; ganza(t, 0.6 * [0.7, 0.4, 0.6, 1][j % 4], 0.22); }
-      [[8, F2, 0.45, true], [11, F3, 0.35, false], [12, F1, 0.5, true], [14, F3, 0.4, false], [15, F3, 0.5, true]].forEach(([j, f, v, o]) => { if (st(j) >= T.settle - 0.03) surdo(st(j), f, v, 0.3, o); });
-      for (let j = 8; j < 16; j++) { const t = st(j); if (t < T.settle - 0.03) continue; const p = prog(t, st(8), st(15)); caixa(t, 0.25 + 0.3 * p, -0.15); if (j >= 12) caixa(t + S16 / 2, 0.2 + 0.3 * p, -0.15); }
+      [[8, F2, 0.32, true], [11, F3, 0.24, false], [12, F1, 0.34, true], [14, F3, 0.26, false], [15, F3, 0.3, true]].forEach(([j, f, v, o]) => { if (st(j) >= T.settle - 0.03) surdo(st(j), f, v, 0.3, o); });
+      for (let j = 8; j < 16; j++) { const t = st(j); if (t < T.settle - 0.03) continue; const p = prog(t, st(8), st(15)); caixa(t, 0.14 + 0.22 * p, -0.15); if (j >= 12) caixa(t + S16 / 2, 0.1 + 0.2 * p, -0.15); }
       tamborim(st(13), 0.5, 0.38); tamborim(st(15), 0.6, 0.38);
     }
     // --- büyük vuruşların müzik katmanı ---
     surdo(T.stamp, F1, 1.0, -0.05); sub(T.stamp, F1, 0.6, 0.6);
-    surdo(T.hookSlam, F1, 1.1, 0); sub(T.hookSlam, F1, 0.7, 0.7); brass(T.hookSlam + 0.005, 0.85, 0.22);
+    surdo(T.hookSlam, F1, 0.9, 0); sub(T.hookSlam, F1, 0.7, 0.7); brass(T.hookSlam + 0.005, 0.85, 0.22);
     surdo(T.coinDrop, F1, 1.1, -0.3); sub(T.coinDrop, F1, 0.7, 0.75); brass(T.coinDrop + 0.005, 0.85, 0.2, -0.2);
-    surdo(T.tablo, F1, 1.0, 0); sub(T.tablo, F1, 0.8, 0.8);
+    surdo(T.tablo, F1, 0.6, 0); sub(T.tablo, F1, 0.8, 0.5);
     // takım adları: her adda büyük surdo (+ sub); büyük dörtte daha ağır + deplasmanda brass
     HITS.forEach((h) => { surdo(h.t, h.home ? F1 : F2 * 0.75, h.big ? 1.15 : 0.95, h.pan * 0.35); sub(h.t, h.home ? F1 : 41.2 * 1.335, 0.5, h.big ? 0.9 : 0.7);
       // ada yanıt: tamborim + abafado terceira, vuruştan 2-3 onaltılık sonra (ızgara yerine vuruşa göre fazlanır)

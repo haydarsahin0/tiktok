@@ -13,7 +13,7 @@ const TR = [null, ['whipL', 0.3], ['shrink', 0.36, ...DECK_CARD], ['zin', 0.3, 5
   ['slide', 0.3], ['flipV', 0.3], ['zin', 0.3, 540, 880], ['diag', 0.34],
   ['fade', 0.4],
   ['flash', 0.2], ['spin', 0.34], ['whipU', 0.28], ['punch', 0.3],
-  ['zout', 0.42, 870, 1180], ['whipD', 0.36], ['cut'], ['iris', 0.5, 540, 600, 150]];
+  ['zout', 0.42, 798, 1230], ['whipD', 0.36], ['cut'], ['iris', 0.5, 540, 600, 150]];
 
 function drawZoom(cv, fx, fy, s, a, blur = 0) {
   const n = blur > 0.05 ? 4 : 1;
@@ -72,7 +72,7 @@ function compose(t) {
   } else if (kind === 'diag') { // önceki kart dikiş boyunca ikiye ayrılır
     ctx.drawImage(B, 0, 0);
     const off = eIn(p) * 1400, nx = 0.4, ny = 0.92;
-    ctx.save(); ctx.beginPath(); ctx.moveTo(-50, -50); ctx.lineTo(W + 50, -50); ctx.lineTo(W + 50, 640); ctx.lineTo(-50, 1120); ctx.closePath(); ctx.translate(-nx * off, -ny * off); ctx.clip(); ctx.drawImage(A, 0, 0); ctx.restore();
+    ctx.save(); ctx.translate(-nx * off, -ny * off); ctx.beginPath(); ctx.moveTo(-50, -50); ctx.lineTo(W + 50, -50); ctx.lineTo(W + 50, 640); ctx.lineTo(-50, 1120); ctx.closePath(); ctx.clip(); ctx.drawImage(A, 0, 0); ctx.restore();
     ctx.save(); ctx.translate(nx * off, ny * off); ctx.beginPath(); ctx.moveTo(-50, 1120); ctx.lineTo(W + 50, 640); ctx.lineTo(W + 50, H + 50); ctx.lineTo(-50, H + 50); ctx.closePath(); ctx.clip(); ctx.drawImage(A, 0, 0); ctx.restore();
     ctx.save(); ctx.globalAlpha = b; ctx.strokeStyle = '#fff'; ctx.lineWidth = 14; ctx.shadowColor = CY; ctx.shadowBlur = 40; ctx.beginPath(); ctx.moveTo(-50, 1120); ctx.lineTo(W + 50, 640); ctx.stroke(); ctx.restore();
   } else if (kind === 'spin') {

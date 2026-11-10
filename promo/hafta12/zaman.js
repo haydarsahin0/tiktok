@@ -3,8 +3,8 @@
 const W = 1080, H = 1920, FPS = 30;
 const getJSON = (u) => { const x = new XMLHttpRequest(); x.open('GET', u, false); x.send(); return JSON.parse(x.responseText); };
 const VO = getJSON('hafta12-cues.json');
-const PROMO = { vo: 'hafta12-ses.mp3', voOffset: 0, voTrim: VO.trim, voGain: 2.0, lufs: -12,
-  voFx: "highpass=f=75,acompressor=threshold=-30dB:ratio=3.5:attack=4:release=110:makeup=3.5,equalizer=f=220:t=q:w=1.1:g=-1.5,equalizer=f=3200:t=q:w=1.2:g=3,volume=0:enable='between(t,34.28,35.00)'", out: 'taraftar-ligi-hafta12.mp4' };
+const PROMO = { vo: 'hafta12-ses.mp3', voOffset: 0, voTrim: VO.trim, voGain: 1.75, lufs: -12,
+  voFx: "highpass=f=75,acompressor=threshold=-32dB:ratio=4:attack=2:release=90:makeup=4,equalizer=f=220:t=q:w=1.1:g=-1.5,equalizer=f=3200:t=q:w=1.2:g=3,alimiter=limit=0.5:attack=2:release=40:level=0:latency=1,volume=0:enable='between(t,34.28,35.00)'", out: 'taraftar-ligi-hafta12.mp4' };
 const norm = (w) => w.toLocaleLowerCase('tr-TR').replace(/[^a-zçğıöşü0-9']/g, '');
 function cueW(word, nth = 1) { let k = 0; for (const w of VO.words) if (norm(w.w) === norm(word) && ++k === nth) return w; throw new Error('kelime bulunamadı: ' + word); }
 const cue = (word, nth = 1) => cueW(word, nth).s;

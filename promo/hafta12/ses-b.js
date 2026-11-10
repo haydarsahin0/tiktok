@@ -63,7 +63,7 @@ window.SES12.fx = (A) => {
   // "karar veriyor": baloncuklar paraya emilir → manşet çakılır
   whoosh(T.hookSlam - 0.34, 0.34, { type: 'highpass', f0: 3000, f1: 300, q: 0.9, peak: 0.95, v: 0.5, tone: [400, 1600], toneV: 0.05 });
   for (let i = 0; i < 6; i++) pop(T.hookSlam - 0.3 + i * 0.045, 900 + i * 140, 0.4, (R() - 0.5) * 1.4);
-  thud(T.hookSlam, 0.9, 0, 130, 40, 0.6); shock(T.hookSlam, 0.6);
+  thud(T.hookSlam, 0.7, 0, 130, 40, 0.6); shock(T.hookSlam, 0.45);
 
   // ===== 2) kural =====
   whoosh(T.kural - 0.06, 0.26, { type: 'bandpass', f0: 3800, f1: 600, q: 1.6, p0: -0.8, p1: 0.8, peak: 0.4, v: 0.75, fAt: 1 });  // yatay hızlı pan
@@ -135,7 +135,7 @@ window.SES12.fx = (A) => {
   whoosh(T.coinFly + 0.6, T.tablo - T.coinFly - 0.6, { type: 'bandpass', f0: 500, f1: 2600, q: 1.3, p0: 0.7, p1: 0, am: 22, v: 0.55, peak: 0.85, tone: [1700, 2600], toneV: 0.03 }); // uçuş (dönen para)
 
   // ===== 8) tablo: para tabloya konar — dolgun, tatmin edici darbe + dönerek duran para tıkırtısı =====
-  { const t = T.tablo; thud(t, 1.15, 0, 150, 38, 0.7); coin(t, 1.2, 0, 1500, 1.2); shock(t, 0.55, 0);
+  { const t = T.tablo; thud(t, 0.72, 0, 150, 38, 0.7); coin(t, 0.9, 0, 1500, 1.2); shock(t, 0.32, 0);
     const g = out(sfx, 0), bp = filt('bandpass', 420, 1, g); perc(g, t, 0.5, 0.002, 0.15); noise(t, 0.18, bp); // kâğıt kart "tok"
     let x = t + 0.11, gap = 0.1, v = 0.75; while (gap > 0.012 && x < C.dikkat - 0.05) { coin(x, v, (R() - 0.5) * 0.3, 2350 + R() * 120, 0.18); x += gap; gap *= 0.8; v *= 0.9; } }
   // satırlar yer değiştirir: +3 çipleri döner, satırlar kayar (ses yumuşak, sürekli)

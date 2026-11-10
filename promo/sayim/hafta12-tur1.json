@@ -1,0 +1,143 @@
+{
+ "week": 12,
+ "period": 1,
+ "video": "https://www.tiktok.com/@taraftarligitr/video/7706557518062832929",
+ "fetchedAt": 1794330071,
+ "stats": {
+  "apiCommentCount": 28,
+  "fanComments": 27,
+  "countedComments": 16,
+  "rejected": {
+   "kanal": 1,
+   "tanınmadı": 1,
+   "limit (2+)": 10
+  },
+  "uniqueCommenters": 13
+ },
+ "votes": {
+  "gs": 3,
+  "fb": 3,
+  "bjk": 7,
+  "amed": 2,
+  "gfk": 1
+ },
+ "matches": [
+  {
+   "home": "ibfk",
+   "away": "corum",
+   "votesHome": 0,
+   "votesAway": 0,
+   "multHome": 1,
+   "multAway": 1,
+   "ptsHome": 0,
+   "ptsAway": 0,
+   "shareHome": null,
+   "hg": 0,
+   "ag": 0
+  },
+  {
+   "home": "amed",
+   "away": "rize",
+   "votesHome": 2,
+   "votesAway": 0,
+   "multHome": 1,
+   "multAway": 1,
+   "ptsHome": 2,
+   "ptsAway": 0,
+   "shareHome": 1.0,
+   "hg": 1,
+   "ag": 0
+  },
+  {
+   "home": "erzurum",
+   "away": "goztepe",
+   "votesHome": 0,
+   "votesAway": 0,
+   "multHome": 1,
+   "multAway": 1,
+   "ptsHome": 0,
+   "ptsAway": 0,
+   "shareHome": null,
+   "hg": 0,
+   "ag": 0
+  },
+  {
+   "home": "kasimpasa",
+   "away": "alanya",
+   "votesHome": 0,
+   "votesAway": 0,
+   "multHome": 1,
+   "multAway": 1,
+   "ptsHome": 0,
+   "ptsAway": 0,
+   "shareHome": null,
+   "hg": 0,
+   "ag": 0
+  },
+  {
+   "home": "gb",
+   "away": "gfk",
+   "votesHome": 0,
+   "votesAway": 1,
+   "multHome": 1,
+   "multAway": 1,
+   "ptsHome": 0,
+   "ptsAway": 1,
+   "shareHome": 0.0,
+   "hg": 0,
+   "ag": 1
+  },
+  {
+   "home": "gs",
+   "away": "samsun",
+   "votesHome": 3,
+   "votesAway": 0,
+   "multHome": 1,
+   "multAway": 1.5,
+   "ptsHome": 3,
+   "ptsAway": 0.0,
+   "shareHome": 1.0,
+   "hg": 1,
+   "ag": 0
+  },
+  {
+   "home": "kocaeli",
+   "away": "fb",
+   "votesHome": 0,
+   "votesAway": 3,
+   "multHome": 1.5,
+   "multAway": 1,
+   "ptsHome": 0.0,
+   "ptsAway": 3,
+   "shareHome": 0.0,
+   "hg": 0,
+   "ag": 1
+  },
+  {
+   "home": "konya",
+   "away": "bjk",
+   "votesHome": 0,
+   "votesAway": 7,
+   "multHome": 1.5,
+   "multAway": 1,
+   "ptsHome": 0.0,
+   "ptsAway": 7,
+   "shareHome": 0.0,
+   "hg": 0,
+   "ag": 1
+  },
+  {
+   "home": "ts",
+   "away": "eyup",
+   "votesHome": 0,
+   "votesAway": 0,
+   "multHome": 1,
+   "multAway": 1.5,
+   "ptsHome": 0,
+   "ptsAway": 0.0,
+   "shareHome": null,
+   "hg": 0,
+   "ag": 0
+  }
+ ]
+}
